@@ -56,11 +56,13 @@ testing connections using credentials supplied in a POST request body.
 
 Returns `success` and `message`, with HTTP 200 on success or 400 on failure.
 
-Successful connection tests save a `DataBase` record in the core app. Records
-are unique by `db_type`, `host`, `port`, `database`, and `username`; repeated
-successful tests reuse the existing record. Passwords are not stored. Failed
-connection tests do not create records. Apply the model migration with
-`uv run python manage.py migrate` before using this endpoint.
+Connection tests do not save connection records or passwords.
+
+`POST /api/database/columns/` accepts the connection body plus `table`, for
+example `"table": "public.orders"`. It returns `success`, `database`, `table`,
+and `columns` with each column's name, type, nullable flag, default, maximum
+length, precision, and scale. Invalid table names or database failures return
+HTTP 400.
 
 `POST /api/database/tables/` accepts the same connection body and returns
 `success`, `database`, and `tables`. Each table contains `schema_name`,

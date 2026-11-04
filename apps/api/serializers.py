@@ -1,8 +1,6 @@
 from rest_framework import serializers
 
 from apps.core.choices import DatabaseType
-
-
 class DatabaseColumnSerializer(serializers.Serializer):
     database_name = serializers.CharField(allow_blank=True, required=False, allow_null=True)
     schema_name = serializers.CharField(allow_blank=True, required=False, allow_null=True)
@@ -25,11 +23,6 @@ class DatabaseListResponseSerializer(serializers.Serializer):
     databases = serializers.ListField(child=serializers.CharField())
 
 
-class DatabaseColumnsResponseSerializer(serializers.Serializer):
-    database = serializers.CharField()
-    columns = DatabaseColumnSerializer(many=True)
-
-
 class DatabaseErrorSerializer(serializers.Serializer):
     error = serializers.CharField()
 
@@ -49,6 +42,34 @@ class DatabaseConnectionQuerySerializer(serializers.Serializer):
 class DatabaseTableSerializer(serializers.Serializer):
     schema_name = serializers.CharField()
     table_name = serializers.CharField()
+
+
+class DatabaseColumnsQuerySerializer(DatabaseConnectionQuerySerializer):
+    table = serializers.CharField(help_text="Schema-qualified table name, for example public.orders.")
+
+    def validate_table(self, value):
+        schema, separator, table = value.partition(".")
+        if not separator or not schema.strip() or not table.strip():
+            raise serializers.ValidationError("Expected schema.table.")
+        return value
+
+
+class TableColumnSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    type = serializers.CharField()
+    nullable = serializers.BooleanField()
+    default = serializers.CharField(allow_null=True)
+    max_length = serializers.IntegerField(allow_null=True)
+    precision = serializers.IntegerField(allow_null=True)
+    scale = serializers.IntegerField(allow_null=True)
+
+
+class DatabaseColumnsResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    database = serializers.CharField(required=False)
+    table = serializers.CharField(required=False)
+    columns = TableColumnSerializer(many=True)
+    message = serializers.CharField(required=False)
 
 
 class DatabaseConnectionResponseSerializer(serializers.Serializer):

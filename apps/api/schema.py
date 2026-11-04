@@ -7,13 +7,22 @@ from drf_spectacular.utils import (
 )
 
 from apps.api.serializers import (
+    DatabaseColumnsQuerySerializer,
+    DatabaseColumnsResponseSerializer,
     DatabaseTablesResponseSerializer,
     DatabaseConnectionQuerySerializer,
     DatabaseConnectionResponseSerializer,
 )
 
-
 database_viewset_schema = extend_schema_view(
+    columns=extend_schema(
+        tags=["Database"],
+        summary="List columns for a table",
+        description="Send connection credentials and a schema-qualified table name such as public.orders in the POST body.",
+        request=DatabaseColumnsQuerySerializer,
+        responses={200: DatabaseColumnsResponseSerializer, 400: DatabaseColumnsResponseSerializer},
+        filters=False,
+    ),
     tables=extend_schema(
         tags=["Database"],
         summary="List tables and their columns",

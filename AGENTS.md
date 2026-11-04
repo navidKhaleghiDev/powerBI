@@ -31,8 +31,8 @@ Inspect `.agents/skills/` for other relevant skills as the repository evolves. O
 - Inspect the affected code and current settings before making changes. The project has a connection-test API, Swagger documentation, and an unmanaged `DatabaseMetadata` placeholder model. Commented metadata queries and unused serializers do not imply active endpoints.
 - Keep application behavior in `apps/` and project-wide configuration in `bi/`. Follow existing patterns and keep changes scoped to the request.
 - Generate migrations for model changes and review their operations. Preserve applied migration history; use new migrations for subsequent schema changes.
-- Name Django model classes in PascalCase, such as `DataBase`; do not use all-uppercase model names. Set explicit lowercase SQL table names through `Meta.db_table` (use snake_case for multiple words). `DataBase` maps to the SQL table `database`. Keep Python class names and SQL table names distinct, and create migrations for renames instead of rewriting applied history.
-- Set explicit, human-readable `Meta.verbose_name` and `Meta.verbose_name_plural` for Django models. For `DataBase`, use `"Database"` and `"Databases"`. Generate a new migration when changing model options.
+- Name Django model classes in PascalCase, such as `DataBase`; do not use all-uppercase model names. Set explicit lowercase SQL table names through `Meta.db_table` (use snake_case for multiple words). Keep Python class names and SQL table names distinct, and create migrations for renames instead of rewriting applied history.
+- Set explicit, human-readable `Meta.verbose_name` and `Meta.verbose_name_plural` for Django models. Generate a new migration when changing model options.
 - Use Django authentication, permissions, validation, and CSRF protection appropriate to the feature. Keep secrets out of committed code and documentation.
 - Settings currently target local development and load environment values from `.env` using `python-dotenv` when needed.
 - Django’s own PostgreSQL configuration should use `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT` environment variables.

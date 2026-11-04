@@ -12,3 +12,8 @@ class DatabaseService(ABC):
     def get_tables(self) -> dict:
         """List accessible user tables and views with their columns."""
         pass
+
+    @abstractmethod
+    def get_columns(self, table: str) -> dict:
+        """List columns for a schema-qualified table."""
+        pass

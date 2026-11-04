@@ -5,8 +5,14 @@
 - This is the `bi` Django project, managed with `uv`. Read `pyproject.toml` and `uv.lock` for current dependency versions; the project currently requires Python 3.13+ and Django 5.2.
 - Run commands from the repository root, alongside `manage.py`.
 - `bi/settings.py` contains settings, `bi/urls.py` contains root routes, and `bi/asgi.py` and `bi/wsgi.py` expose application entry points.
-- `apps/core/` contains the core application: models, views, admin registration, and migrations. Its registered configuration is `apps.core.apps.CoreConfig`.
-- Use `apps.core` consistently in imports. Although settings add `apps/` to `sys.path`, importing the same application as both `core` and `apps.core` can create duplicate module identities.
+- `apps/api/` is the dedicated DRF API app. Keep API routes, viewsets, serializers, and service logic under this package instead of the core app.
+- Correct API structure:
+  - `apps/api/urls.py` for router registration
+  - `apps/api/viewset/database_viewset.py` for DRF viewset logic
+  - `apps/api/service/database_service.py` for connection and metadata queries
+  - `apps/api/serializers.py` for API payload serialization
+- `apps/core/` remains the core app for model and non-API project logic. Its registered configuration is `apps.core.apps.CoreConfig`.
+- Use `apps.core` consistently in imports when touching the core app, and use `apps.api` when touching API code. Although settings add `apps/` to `sys.path`, importing the same application under multiple names can create duplicate module identities.
 - SQLite data lives in the ignored `db.sqlite3` file. Commit migration files, not local databases.
 - `README.md` documents local setup and development commands; update it when those instructions change.
 
@@ -25,7 +31,7 @@ Inspect `.agents/skills/` for other relevant skills as the repository evolves. O
 - Generate migrations for model changes and review their operations. Preserve applied migration history; use new migrations for subsequent schema changes.
 - Use Django authentication, permissions, validation, and CSRF protection appropriate to the feature. Keep secrets out of committed code and documentation.
 - Settings currently target local development and do not load `.env` files. Implement environment loading explicitly if a requested configuration depends on it.
-- Add focused tests for changed behavior, including relevant validation and access-control failures. Use Django's existing test runner unless the project adopts another framework.
+- Keep changes focused and reviewable. Use Django's existing tooling for validation when needed, but do not force automatic test creation for every change.
 
 ## Commands and validation
 
@@ -39,7 +45,6 @@ Run checks appropriate to the changes:
 
 ```bash
 uv run python manage.py check
-uv run python manage.py test
 ```
 
 For model changes:

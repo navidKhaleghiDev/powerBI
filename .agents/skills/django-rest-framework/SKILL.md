@@ -14,13 +14,19 @@ Before modifying code:
 3. Inspect Django settings in the bi/ directory.
 4. Find existing APIs, serializers, views, and URL routes in apps/.
 5. Follow existing project conventions.
+6. For this repository, keep DRF API work under `apps/api/` with the package layout:
+   - `apps/api/urls.py`
+   - `apps/api/viewset/database_viewset.py`
+   - `apps/api/service/database_service.py`
+   - `apps/api/serializers.py`
 
 ## API Development
 
 - Use existing Django REST Framework patterns.
 - Implement serializers with explicit writable fields.
 - Validate request data using serializers.
-- Use ViewSets or generic views according to project conventions.
+- Use `ModelViewSet` or `ReadOnlyModelViewSet` when the endpoint is read-only and follows the project’s metadata API pattern.
+- Keep database logic in `apps/api/service/` and keep API response logic in `apps/api/viewset/`.
 - Apply pagination for large collections.
 - Use appropriate HTTP status codes.
 - Preserve backwards compatibility when possible.
@@ -41,27 +47,16 @@ Before modifying code:
 - Avoid N+1 queries.
 - Avoid unnecessary database queries in serializers.
 
-## Testing
-
-- Follow the existing project's test framework.
-- Test successful API requests.
-- Test invalid request data.
-- Test unauthenticated requests.
-- Test unauthorized access.
-- Test object-level permissions.
-- Test pagination and filtering.
-- Add regression tests for identified bugs.
 
 ## Validation
 
-Use the project's existing environment and tooling.
+Use the project's existing environment and tooling when validation is needed.
 
-Run relevant checks:
+Run relevant checks as appropriate, such as:
 
 - uv run python manage.py check
-- uv run python manage.py test
 
-Do not claim tests passed unless they were actually executed.
+Do not claim validation passed unless it was actually executed.
 
 ## Completion
 
@@ -69,6 +64,5 @@ Report:
 
 1. Bugs or security issues discovered.
 2. Files changed.
-3. Tests added.
-4. Validation results.
-5. Remaining risks.
+3. Validation results.
+4. Remaining risks.

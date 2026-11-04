@@ -30,7 +30,8 @@ Inspect `.agents/skills/` for other relevant skills as the repository evolves. O
 - Keep application behavior in `apps/` and project-wide configuration in `bi/`. Follow existing patterns and keep changes scoped to the request.
 - Generate migrations for model changes and review their operations. Preserve applied migration history; use new migrations for subsequent schema changes.
 - Use Django authentication, permissions, validation, and CSRF protection appropriate to the feature. Keep secrets out of committed code and documentation.
-- Settings currently target local development and do not load `.env` files. Implement environment loading explicitly if a requested configuration depends on it.
+- Settings currently target local development and load environment values from `.env` using `python-dotenv` when needed.
+- PostgreSQL configuration should use `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT` environment variables.
 - Keep changes focused and reviewable. Use Django's existing tooling for validation when needed, but do not force automatic test creation for every change.
 
 ## Commands and validation

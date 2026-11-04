@@ -1,17 +1,26 @@
 # BI
 
-A Django project with a `core` application, Django admin, and a local SQLite database. The project is currently an initial scaffold with no custom models or application routes.
+A Django project with a `core` application, a DRF API app, and PostgreSQL-backed configuration via environment variables.
 
 ## Requirements
 
 - Python 3.13 or newer
 - [uv](https://docs.astral.sh/uv/) for dependency management
+- PostgreSQL running locally or remote and accessible by the configured credentials
 
-Dependencies are declared in `pyproject.toml` and locked in `uv.lock`. The project uses Django 5.2.
+Dependencies are declared in `pyproject.toml` and locked in `uv.lock`. The project uses Django 5.2 and Django REST Framework.
 
 ## Local setup
 
-Run these commands from the project root:
+1. Copy the sample environment file:
+
+```bash
+cp .env.example .env
+```
+
+2. Update `.env` with your local PostgreSQL values.
+
+3. Run these commands from the project root:
 
 ```bash
 uv sync --locked
@@ -20,21 +29,35 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:8000/admin/ to sign in with your superuser account. The admin is currently the only configured application route.
+Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:8000/admin/ to sign in with your superuser account.
 
-SQLite data is stored in `db.sqlite3`, which is excluded from version control. No environment file is required for the current local settings.
+The API routes are available under `/api/` and the main database metadata endpoints are registered through the API router.
+
+## Environment variables
+
+The project reads PostgreSQL settings from environment variables defined in `.env`:
+
+```env
+POSTGRES_DB=bi
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+```
 
 ## Project structure
 
 ```text
 bi/
 ├── apps/
+│   ├── api/           # DRF API app, routers, viewsets, serializers, services
 │   └── core/          # Application models, views, admin, and migrations
 ├── bi/
 │   ├── settings.py    # Django configuration
 │   ├── urls.py        # Root URL configuration
 │   ├── asgi.py        # ASGI entry point
 │   └── wsgi.py        # WSGI entry point
+├── .env.example       # Sample environment configuration
 ├── manage.py          # Django management commands
 ├── pyproject.toml     # Python version and dependencies
 └── uv.lock            # Locked dependency versions

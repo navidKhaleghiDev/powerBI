@@ -27,6 +27,7 @@ Before modifying code:
 - Validate request data using serializers.
 - Use `ModelViewSet` or `ReadOnlyModelViewSet` when the endpoint is read-only and follows the project’s metadata API pattern.
 - Keep database logic in `apps/api/service/` and keep API response logic in `apps/api/viewset/`.
+- Use environment variables for PostgreSQL connection details (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`).
 - Apply pagination for large collections.
 - Use appropriate HTTP status codes.
 - Preserve backwards compatibility when possible.

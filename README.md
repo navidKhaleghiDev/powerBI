@@ -33,9 +33,31 @@ Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:
 
 The API routes are available under `/api/` and the main database metadata endpoints are registered through the API router.
 
-Open http://127.0.0.1:8000/api/swagger/ for interactive Swagger documentation.
-The OpenAPI schema is available at `/api/schema/`. Database documentation covers
-listing databases and inspecting columns with the `database` query parameter.
+Open http://127.0.0.1:8000/swagger/ for interactive Swagger documentation.
+The OpenAPI schema is available at `/schema/`. Database documentation covers
+testing connections using credentials supplied in a POST request body.
+
+`POST /api/database/databases/` tests a connection using a JSON body:
+
+```json
+{
+  "db_type": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "database": "bi",
+  "username": "postgres",
+  "password": "your-password"
+}
+```
+
+Returns `success` and `message`, with HTTP 200 on success or 400 on failure.
+
+`POST /api/database/tables/` accepts the same connection body and returns
+`success`, `database`, and `tables`. Each table contains `schema_name`,
+`table_name`, and a `columns` list with names, data types, lengths, and numeric
+precision/scale. Results include accessible user tables and views, exclude
+system schemas, and preserve column order. Failed metadata queries return
+HTTP 400 with `success: false`, an empty table list, and a generic message.
 
 ## Environment variables
 

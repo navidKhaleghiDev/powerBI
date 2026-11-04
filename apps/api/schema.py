@@ -1,47 +1,52 @@
 """OpenAPI schema annotations for the database API."""
 
 from drf_spectacular.utils import (
-    OpenApiParameter,
-    PolymorphicProxySerializer,
+    OpenApiExample,
     extend_schema,
     extend_schema_view,
 )
 
 from apps.api.serializers import (
-    DatabaseColumnsResponseSerializer,
-    DatabaseErrorSerializer,
-    DatabaseListResponseSerializer,
+    DatabaseTablesResponseSerializer,
+    DatabaseConnectionQuerySerializer,
+    DatabaseConnectionResponseSerializer,
 )
 
 
 database_viewset_schema = extend_schema_view(
-    retrieve=extend_schema(exclude=True),
-    databases=extend_schema(
+    tables=extend_schema(
         tags=["Database"],
-        summary="List PostgreSQL databases",
-        responses={200: DatabaseListResponseSerializer, 400: DatabaseErrorSerializer},
+        summary="List tables and their columns",
+        description="Lists accessible user tables and views, grouped by schema and table. System schemas are excluded.",
+        request=DatabaseConnectionQuerySerializer,
+        responses={200: DatabaseTablesResponseSerializer, 400: DatabaseTablesResponseSerializer},
         filters=False,
     ),
-    columns=extend_schema(
+    connection_test=extend_schema(
         tags=["Database"],
-        summary="List columns in a database",
-        parameters=[OpenApiParameter("database", str, required=True, description="Database name.")],
-        responses={200: DatabaseColumnsResponseSerializer, 400: DatabaseErrorSerializer},
-        filters=False,
-    ),
-    list=extend_schema(
-        tags=["Database"],
-        summary="List databases or database columns",
-        description="Returns databases when database is omitted; otherwise returns columns for that database.",
-        parameters=[OpenApiParameter("database", str, required=False, description="Database to inspect.")],
-        responses={
-            200: PolymorphicProxySerializer(
-                component_name="DatabaseMetadataResponse",
-                serializers=[DatabaseListResponseSerializer, DatabaseColumnsResponseSerializer],
-                resource_type_field_name=None,
+        summary="Test a PostgreSQL connection",
+        description=(
+            "Connect using the credentials supplied in the request body. "
+            "Valid db_type choices: "
+            + ", ".join(DatabaseConnectionQuerySerializer().fields["db_type"].choices)
+            + ". Only PostgreSQL connection testing is currently implemented."
+        ),
+        request=DatabaseConnectionQuerySerializer,
+        examples=[
+            OpenApiExample(
+                "PostgreSQL connection",
+                value={
+                    "db_type": "postgres",
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "bi",
+                    "username": "postgres",
+                    "password": "your-password",
+                },
+                request_only=True,
             ),
-            400: DatabaseErrorSerializer,
-        },
+        ],
+        responses={200: DatabaseConnectionResponseSerializer, 400: DatabaseConnectionResponseSerializer},
         filters=False,
     ),
 )

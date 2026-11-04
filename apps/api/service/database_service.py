@@ -1,79 +1,83 @@
-import os
-from contextlib import closing
-
-import psycopg2
+import psycopg
+from apps.api.service.database_interface import DatabaseService
 
 
-class POSTGRES:
-    COLUMN_QUERY = """
-        SELECT
-            current_database() AS database_name,
-            table_schema AS schema_name,
-            table_name,
-            column_name,
-            data_type,
-            character_maximum_length AS max_length,
-            numeric_precision,
-            numeric_scale
-        FROM
-            information_schema.columns
-        WHERE
-            table_schema NOT IN ('information_schema', 'pg_catalog')
-        ORDER BY
-            table_schema, table_name, ordinal_position;
-    """
+class POSTGRES(DatabaseService):
 
-    @staticmethod
-    def get_connection_kwargs(db_name="postgres"):
-        return {
-            "dbname": db_name,
-            "user": os.getenv("POSTGRES_USER", "postgres"),
-            "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
-            "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "port": os.getenv("POSTGRES_PORT", "5432"),
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        database: str,
+        username: str,
+        password: str,
+    ):
+        self.config = {
+            "host": host,
+            "port": port,
+            "dbname": database,
+            "user": username,
+            "password": password,
+            "connect_timeout": 5,
         }
+    
 
-    @classmethod
-    def get_postgres_connection_kwargs(cls, db_name="postgres"):
-        return cls.get_connection_kwargs(db_name)
+    def connection_test(self) -> dict:
+        try:
+            with psycopg.connect(**self.config) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT 1;")
+                    cursor.fetchone()
 
-    @classmethod
-    def get_databases(cls):
-        with closing(psycopg2.connect(**cls.get_postgres_connection_kwargs())) as conn:
-            conn.autocommit = True
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT datname FROM pg_database WHERE datistemplate = false;")
-                return [row[0] for row in cursor.fetchall()]
+            return {
+                "success": True,
+                "message": "PostgreSQL connection successful",
+            }
 
-    @classmethod
-    def fetch_columns_for_database(cls, db_name):
-        with closing(psycopg2.connect(**cls.get_postgres_connection_kwargs(db_name))) as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(cls.COLUMN_QUERY)
-                rows = cursor.fetchall()
+        except psycopg.Error:
+            return {
+                "success": False,
+                "message": "Unable to connect to the PostgreSQL database.",
+            }
 
-        columns = []
-        for row in rows:
-            columns.append(
-                {
-                    "database_name": row[0],
-                    "schema_name": row[1],
-                    "table_name": row[2],
-                    "column_name": row[3],
-                    "data_type": row[4],
-                    "max_length": row[5],
-                    "numeric_precision": row[6],
-                    "numeric_scale": row[7],
-                }
-            )
-        return columns
+    def get_tables(self) -> dict:
+        try:
+            with psycopg.connect(**self.config) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT schemaname, tablename
+                        FROM pg_catalog.pg_tables
+                        WHERE schemaname NOT IN (
+                            'pg_catalog',
+                            'information_schema'
+                        )
+                        ORDER BY schemaname, tablename;
+                    """)
+                    all_tables = [".".join(table) for table in cursor.fetchall()]
+
+            return {
+                "success": True,
+                "database": self.config["dbname"],
+                "tables": all_tables,
+            }
+        except psycopg.Error:
+            return {
+                "success": False,
+                "database": self.config["dbname"],
+                "tables": [],
+                "message": "Unable to read database tables.",
+            }
 
 
 class DatabaseServiceFactory:
     @staticmethod
-    def create(db_type):
+    def get_service(db_type, **connection_kwargs) -> DatabaseService:
         services = {
             "postgres": POSTGRES,
         }
         service_class = services.get(db_type)
-       
+        if not service_class:
+            return None
+        return service_class(**connection_kwargs)
+
+

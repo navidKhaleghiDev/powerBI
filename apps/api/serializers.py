@@ -30,3 +30,36 @@ class DatabaseColumnsResponseSerializer(serializers.Serializer):
 
 class DatabaseErrorSerializer(serializers.Serializer):
     error = serializers.CharField()
+
+
+class DatabaseConnectionQuerySerializer(serializers.Serializer):
+    db_type = serializers.ChoiceField(
+        choices=["postgres", "mysql", "sqlite"],
+        help_text="Database type. Only PostgreSQL connection testing is currently implemented.",
+    )
+    host = serializers.CharField()
+    port = serializers.IntegerField(min_value=1, max_value=65535)
+    database = serializers.CharField()
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False, allow_blank=True)
+
+
+class DatabaseTableSerializer(serializers.Serializer):
+    schema_name = serializers.CharField()
+    table_name = serializers.CharField()
+
+
+class DatabaseConnectionResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+
+
+class DatabaseTableColumnsSerializer(DatabaseTableSerializer):
+    columns = DatabaseColumnSerializer(many=True)
+
+
+class DatabaseTablesResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    database = serializers.CharField()
+    tables = DatabaseTableColumnsSerializer(many=True)
+    message = serializers.CharField(required=False)

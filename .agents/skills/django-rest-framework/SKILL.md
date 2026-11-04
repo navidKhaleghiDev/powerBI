@@ -1,69 +1,42 @@
 ---
 name: django-rest-framework
-description: Develop, review, debug, secure, and optimize Django REST Framework APIs, serializers, viewsets, authentication, permissions, pagination, and filtering.
+description: Develop and review this project's Django REST Framework APIs, request serializers, configured database services, and drf-spectacular documentation.
 ---
 
-# Django REST Framework Skill
+# Django REST Framework
 
-## Project Discovery
+## Discover the implementation
 
-Before modifying code:
+Read `AGENTS.md`, `pyproject.toml`, relevant lockfile entries, and `bi/settings.py`. Inspect the affected viewset, serializers, interface, backend service, schema annotations, and router together. Follow active code; commented metadata queries and unused serializers do not imply implemented endpoints.
 
-1. Read AGENTS.md if available.
-2. Inspect pyproject.toml to determine installed versions.
-3. Inspect Django settings in the bi/ directory.
-4. Find existing APIs, serializers, views, and URL routes in apps/.
-5. Follow existing project conventions.
-6. For this repository, keep DRF API work under `apps/api/` with the package layout:
-   - `apps/api/urls.py`
-   - `apps/api/viewset/database_viewset.py`
-   - `apps/api/service/database_service.py`
-   - `apps/api/serializers.py`
+## Project flow
 
-## API Development
+`POST body → DatabaseConnectionQuerySerializer → DatabaseServiceFactory.get_service → configured POSTGRES instance → connection_test() → Response`
 
-- Use existing Django REST Framework patterns.
-- Implement serializers with explicit writable fields.
-- Validate request data using serializers.
-- Use `ModelViewSet` or `ReadOnlyModelViewSet` when the endpoint is read-only and follows the project’s metadata API pattern.
-- Keep database logic in `apps/api/service/` and keep API response logic in `apps/api/viewset/`.
-- Use environment variables for PostgreSQL connection details (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`).
-- Apply pagination for large collections.
-- Use appropriate HTTP status codes.
-- Preserve backwards compatibility when possible.
+- Keep service-oriented actions on `GenericViewSet`; use model viewsets when the requested behavior needs model CRUD.
+- Keep routers in `apps/api/urls.py`, views in `apps/api/viewset/`, serializers in `apps/api/serializers.py`, and backend logic in `apps/api/service/`. Use canonical `apps.api` and `apps.core` imports.
+- Keep routing `@action` decorators in the viewset. Put Swagger annotations in `apps/api/schema.py`, applying the exported `extend_schema_view` decorator to the viewset.
+- Keep `/schema/` and `/swagger/` in `bi/urls.py`; API router paths live under `/api/`.
 
-## Security
+## Connection request and service contract
 
-- Enforce authentication and permissions.
-- Filter querysets by user or tenant when required.
-- Prevent unauthorized object access.
-- Validate foreign-key ownership.
-- Never expose sensitive model fields.
-- Preserve CSRF protection for session authentication.
+`POST /api/database/databases/` currently accepts required `db_type`, `host`, `port`, `database`, `username`, and `password` fields. `db_type` is currently limited to `postgres`; port is 1–65535. Password is write-only, preserves whitespace, and allows an empty string.
 
-## Database Optimization
+Validate `request.data` using `is_valid(raise_exception=True)` before forwarding validated keyword arguments to the factory. Send credentials in POST bodies rather than URL parameters.
 
-- Use select_related() for ForeignKey relationships.
-- Use prefetch_related() for reverse and many-to-many relationships.
-- Avoid N+1 queries.
-- Avoid unnecessary database queries in serializers.
+`DatabaseService` in `apps/api/service/database_interface.py` defines the abstract `connection_test(self) -> dict` contract. The factory selects and instantiates the backend with constructor-supplied settings. `POSTGRES` maps `database` to `dbname` and `username` to `user` in `self.config`.
 
+The service uses Psycopg 3 (`psycopg`), a 5-second connection timeout, context-managed connection/cursor cleanup, and `SELECT 1`. It returns `success` and `message`; the view maps success to HTTP 200 and failure to HTTP 400. Serializer validation failures use DRF's field-error shape; distinguish them from connection failures when refining schema responses.
 
-## Validation
+Keep interface, factory, constructor, serializer, view, and schema aligned when changing the flow. For a new backend, update the implementation, factory mapping, and serializer choices. Define unsupported-backend handling explicitly; API serializer choices currently prevent unsupported factory selections. An unchecked mapping lookup is not a preferred error-handling convention.
 
-Use the project's existing environment and tooling when validation is needed.
+Django's own database uses `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT` from the environment. The tested database uses request credentials; preserve this separation.
 
-Run relevant checks as appropriate, such as:
+## Validation and security
 
-- uv run python manage.py check
-
-Do not claim validation passed unless it was actually executed.
-
-## Completion
-
-Report:
-
-1. Bugs or security issues discovered.
-2. Files changed.
-3. Validation results.
-4. Remaining risks.
+- Keep passwords, connection configuration, and raw driver exceptions out of responses, logs, and committed examples.
+- Preserve appropriate authentication, permissions, and session CSRF protection when changing endpoints.
+- Run `uv run python manage.py check` for API changes. For schema changes, also run `uv run python manage.py spectacular --file /tmp/bi-openapi.yaml --validate --fail-on-warn`.
+- If uv is blocked, use `.venv/bin/python manage.py ...` as described in `AGENTS.md`.
+- For connection-flow changes, use mocked driver checks for credential forwarding, success/failure results, cleanup, validation, and allowed methods as relevant. Report live connectivity checks separately; do not assume a live database is available.
+- Documentation-only edits need no Django test suite. Report changed files, executed validation, and unresolved issues or setup steps.

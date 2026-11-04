@@ -28,7 +28,7 @@ class DatabaseViewSet(viewsets.GenericViewSet):
         return Response(result, status=status.HTTP_200_OK if result["success"] else status.HTTP_400_BAD_REQUEST)
 
 
-    @action(detail=False, methods=["post"], url_path="databases")
+    @action(detail=False, methods=["post"], url_path="connection-test")
     def connection_test(self, request):
         query = DatabaseConnectionQuerySerializer(data=request.data)
         query.is_valid(raise_exception=True)

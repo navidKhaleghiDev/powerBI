@@ -1,42 +1,41 @@
 ---
 name: django-rest-framework
-description: Develop and review this project's Django REST Framework APIs, request serializers, configured database services, and drf-spectacular documentation.
+description: Develop and review this project's DRF database connection and metadata APIs, service interfaces and factories, serializers, and drf-spectacular schemas.
 ---
 
 # Django REST Framework
 
-## Discover the implementation
+## Discovery and scope
 
-Read `AGENTS.md`, `pyproject.toml`, relevant lockfile entries, and `bi/settings.py`. Inspect the affected viewset, serializers, interface, backend service, schema annotations, and router together. Follow active code; commented metadata queries and unused serializers do not imply implemented endpoints.
+Read `AGENTS.md`, installed/locked dependencies, settings, and the affected router, viewset, serializers, schema, service interface, and backend together. The repository's endpoint table and detailed conventions are in `AGENTS.md`; use active code to verify them.
 
-## Project flow
+The current API is stateless. Connection credentials are not persisted. `DataBase` and its CRUD endpoints were removed; keep migration history through `core.0007` intact and do not restore persistence unless requested. The unmanaged API placeholder and older serializers do not imply active model endpoints.
 
-`POST body → DatabaseConnectionQuerySerializer → DatabaseServiceFactory.get_service → configured POSTGRES instance → connection_test() → Response`
+## Implement the existing flow
 
-- Keep service-oriented actions on `GenericViewSet`; use model viewsets when the requested behavior needs model CRUD.
-- Keep routers in `apps/api/urls.py`, views in `apps/api/viewset/`, serializers in `apps/api/serializers.py`, and backend logic in `apps/api/service/`. Use canonical `apps.api` and `apps.core` imports.
-- Keep routing `@action` decorators in the viewset. Put Swagger annotations in `apps/api/schema.py`, applying the exported `extend_schema_view` decorator to the viewset.
-- Keep `/schema/` and `/swagger/` in `bi/urls.py`; API router paths live under `/api/`.
+`POST request.data → serializer validation → factory → configured service → result dict → HTTP response`
 
-## Connection request and service contract
+- Keep `GenericViewSet` actions in `apps/api/viewset/`, routers in `apps/api/urls.py`, payloads in `apps/api/serializers.py`, SQL and connection logic in `apps/api/service/`, and shared `DatabaseType` choices in `apps/core/choices.py`. Use canonical package imports.
+- Preserve routing `@action` decorators on methods. Define Swagger annotations with `extend_schema_view` in `apps/api/schema.py`, applied through `@database_viewset_schema`. Project-wide `/schema/` and `/swagger/` routes belong in `bi/urls.py`.
+- Use `DatabaseConnectionQuerySerializer` for `/api/database/databases/` and `/api/database/tables/`. Use its subclass `DatabaseColumnsQuerySerializer` for `/api/database/columns/`.
+- Validate `request.data` with `is_valid(raise_exception=True)`. For columns, copy validated data and pop `table` before factory invocation; send the qualified table separately to `get_columns(table)`.
+- The ABC `DatabaseService` declares `connection_test`, `get_tables`, and `get_columns`. The factory creates a new configured implementation or returns `None`; views must return HTTP 400 for unsupported implementations. Do not assume its current annotation fully describes its nullable result.
+- Serializer choices include `postgresql`, `mysql`, `clickhouse`, and `mssql`, but only `postgresql` maps to `POSTGRES`. When adding a backend, align the implementation, abstract contract, factory, validation, schema, and checks.
+- The configured service owns credentials and SQL. Use Psycopg 3 context managers and the existing 5-second connection timeout. Parameterize SQL values; preserve stable schema/table and ordinal column ordering.
 
-`POST /api/database/databases/` currently accepts required `db_type`, `host`, `port`, `database`, `username`, and `password` fields. `db_type` is currently limited to `postgres`; port is 1–65535. Password is write-only, preserves whitespace, and allows an empty string.
+## Match runtime response shapes
 
-Validate `request.data` using `is_valid(raise_exception=True)` before forwarding validated keyword arguments to the factory. Send credentials in POST bodies rather than URL parameters.
+The connection test returns `success` and `message`. Table listing returns `success`, `database`, and a list of `schema.table` strings from `pg_tables`; it does not include views or nested columns. Column listing returns `success`, `database`, `table`, and column objects with `name`, `type`, `nullable`, `default`, `max_length`, `precision`, and `scale`.
 
-`DatabaseService` in `apps/api/service/database_interface.py` defines the abstract `connection_test(self) -> dict` contract. The factory selects and instantiates the backend with constructor-supplied settings. `POSTGRES` maps `database` to `dbname` and `username` to `user` in `self.config`.
+Views map service success to HTTP 200 and service failure to 400. Driver failures return generic messages and empty lists. Validation failures use DRF field errors; unsupported backends return an `error` object. Document these shapes deliberately.
 
-The service uses Psycopg 3 (`psycopg`), a 5-second connection timeout, context-managed connection/cursor cleanup, and `SELECT 1`. It returns `success` and `message`; the view maps success to HTTP 200 and failure to HTTP 400. Serializer validation failures use DRF's field-error shape; distinguish them from connection failures when refining schema responses.
+Known drift: the table response serializer and Swagger description still describe the previous nested-column/view format, and the interface table docstring is stale. Treat actual service output as evidence, not stale descriptions. Correct those definitions when the task includes that area; do not expand documentation-only work into runtime changes.
 
-Keep interface, factory, constructor, serializer, view, and schema aligned when changing the flow. For a new backend, update the implementation, factory mapping, and serializer choices. Define unsupported-backend handling explicitly; API serializer choices currently prevent unsupported factory selections. An unchecked mapping lookup is not a preferred error-handling convention.
+## Security and validation
 
-Django's own database uses `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT` from the environment. The tested database uses request credentials; preserve this separation.
-
-## Validation and security
-
-- Keep passwords, connection configuration, and raw driver exceptions out of responses, logs, and committed examples.
-- Preserve appropriate authentication, permissions, and session CSRF protection when changing endpoints.
-- Run `uv run python manage.py check` for API changes. For schema changes, also run `uv run python manage.py spectacular --file /tmp/bi-openapi.yaml --validate --fail-on-warn`.
-- If uv is blocked, use `.venv/bin/python manage.py ...` as described in `AGENTS.md`.
-- For connection-flow changes, use mocked driver checks for credential forwarding, success/failure results, cleanup, validation, and allowed methods as relevant. Report live connectivity checks separately; do not assume a live database is available.
-- Documentation-only edits need no Django test suite. Report changed files, executed validation, and unresolved issues or setup steps.
+- Send passwords in POST bodies, keep them write-only, preserve whitespace and allowed empty strings, and never return/log credentials or raw driver errors. Target request credentials are independent of Django's `POSTGRES_*` environment settings.
+- Preserve appropriate authentication, permissions, and CSRF protection. Current viewset permissions are not explicitly configured; do not claim it enforces authentication.
+- For Python changes, check syntax and run `uv run python manage.py check`. For schema changes, run `uv run python manage.py spectacular --file /tmp/bi-openapi.yaml --validate --fail-on-warn`.
+- Use `.venv/bin/python` when uv cannot run, as described in `AGENTS.md`. For model changes, follow its migration commands and preserve applied history.
+- For service/API changes, mock the driver to check credential forwarding, parameterized queries, result mapping, empty lists, failures, cleanup, and serializer rejection as relevant. Verify schema shapes separately from schema validity. Distinguish live connectivity from mocked checks.
+- Documentation-only updates need no Django test suite. Report changed files, executed validation, and unresolved findings accurately.

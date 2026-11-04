@@ -1,5 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.api.schema import database_viewset_schema
@@ -9,6 +10,7 @@ from apps.api.service.database_service import DatabaseServiceFactory
 
 @database_viewset_schema
 class DatabaseViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = DatabaseConnectionQuerySerializer
     http_method_names = ["post", "options"]
 

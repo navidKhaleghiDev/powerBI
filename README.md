@@ -29,6 +29,10 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
+For testing from another device, run `uv run python manage.py runserver 0.0.0.0:8000`.
+The VS Code launch configuration also listens on all interfaces. Local development
+settings accept all hosts with `ALLOWED_HOSTS = ["*"]`.
+
 Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:8000/admin/ to sign in with your superuser account.
 
 The API routes are available under `/api/` and the main database metadata endpoints are registered through the API router.
@@ -41,7 +45,7 @@ testing connections using credentials supplied in a POST request body.
 
 ```json
 {
-  "db_type": "postgres",
+  "db_type": "postgresql",
   "host": "localhost",
   "port": 5432,
   "database": "bi",
@@ -51,6 +55,12 @@ testing connections using credentials supplied in a POST request body.
 ```
 
 Returns `success` and `message`, with HTTP 200 on success or 400 on failure.
+
+Successful connection tests save a `DataBase` record in the core app. Records
+are unique by `db_type`, `host`, `port`, `database`, and `username`; repeated
+successful tests reuse the existing record. Passwords are not stored. Failed
+connection tests do not create records. Apply the model migration with
+`uv run python manage.py migrate` before using this endpoint.
 
 `POST /api/database/tables/` accepts the same connection body and returns
 `success`, `database`, and `tables`. Each table contains `schema_name`,
@@ -113,3 +123,7 @@ uv run python manage.py test
 ## Deployment
 
 The current settings are configured for local development. Before deploying, configure a private production `SECRET_KEY`, set `DEBUG = False`, populate `ALLOWED_HOSTS`, and configure production database and static file handling.
+
+Database types are defined by `DatabaseType` in `apps/core/choices.py`: `postgresql`,
+`mysql`, `clickhouse`, and `mssql`. Only PostgreSQL currently has a service
+implementation. Migration `core.0002` converts stored `postgres` values to `postgresql`.

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.core.choices import DatabaseType
+
 
 class DatabaseColumnSerializer(serializers.Serializer):
     database_name = serializers.CharField(allow_blank=True, required=False, allow_null=True)
@@ -34,13 +36,13 @@ class DatabaseErrorSerializer(serializers.Serializer):
 
 class DatabaseConnectionQuerySerializer(serializers.Serializer):
     db_type = serializers.ChoiceField(
-        choices=["postgres", "mysql", "sqlite"],
+        choices=DatabaseType.choices,
         help_text="Database type. Only PostgreSQL connection testing is currently implemented.",
     )
-    host = serializers.CharField()
+    host = serializers.CharField(max_length=255)
     port = serializers.IntegerField(min_value=1, max_value=65535)
-    database = serializers.CharField()
-    username = serializers.CharField()
+    database = serializers.CharField(max_length=255)
+    username = serializers.CharField(max_length=255)
     password = serializers.CharField(write_only=True, trim_whitespace=False, allow_blank=True)
 
 

@@ -36,7 +36,7 @@ database_viewset_schema = extend_schema_view(
             OpenApiExample(
                 "PostgreSQL connection",
                 value={
-                    "db_type": "postgres",
+                    "db_type": "postgresql",
                     "host": "localhost",
                     "port": 5432,
                     "database": "bi",

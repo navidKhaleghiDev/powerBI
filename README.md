@@ -33,6 +33,10 @@ Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:
 
 The API routes are available under `/api/` and the main database metadata endpoints are registered through the API router.
 
+Open http://127.0.0.1:8000/api/swagger/ for interactive Swagger documentation.
+The OpenAPI schema is available at `/api/schema/`. Database documentation covers
+listing databases and inspecting columns with the `database` query parameter.
+
 ## Environment variables
 
 The project reads PostgreSQL settings from environment variables defined in `.env`:

@@ -17,3 +17,16 @@ class DatabaseMetadataSerializer(serializers.Serializer):
     database = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     columns = DatabaseColumnSerializer(many=True, required=False)
     error = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class DatabaseListResponseSerializer(serializers.Serializer):
+    databases = serializers.ListField(child=serializers.CharField())
+
+
+class DatabaseColumnsResponseSerializer(serializers.Serializer):
+    database = serializers.CharField()
+    columns = DatabaseColumnSerializer(many=True)
+
+
+class DatabaseErrorSerializer(serializers.Serializer):
+    error = serializers.CharField()

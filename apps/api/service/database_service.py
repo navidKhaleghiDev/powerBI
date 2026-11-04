@@ -1,6 +1,8 @@
 import os
+from contextlib import closing
 
 import psycopg2
+
 
 class POSTGRES:
     COLUMN_QUERY = """
@@ -31,19 +33,23 @@ class POSTGRES:
             "port": os.getenv("POSTGRES_PORT", "5432"),
         }
 
-    @staticmethod
-    def get_databases():
-        with psycopg2.connect(**POSTGRES.get_connection_kwargs()) as conn:
+    @classmethod
+    def get_postgres_connection_kwargs(cls, db_name="postgres"):
+        return cls.get_connection_kwargs(db_name)
+
+    @classmethod
+    def get_databases(cls):
+        with closing(psycopg2.connect(**cls.get_postgres_connection_kwargs())) as conn:
             conn.autocommit = True
             with conn.cursor() as cursor:
                 cursor.execute("SELECT datname FROM pg_database WHERE datistemplate = false;")
                 return [row[0] for row in cursor.fetchall()]
 
-    @staticmethod
-    def fetch_columns_for_database(db_name):
-        with psycopg2.connect(**POSTGRES.get_connection_kwargs(db_name)) as conn:
+    @classmethod
+    def fetch_columns_for_database(cls, db_name):
+        with closing(psycopg2.connect(**cls.get_postgres_connection_kwargs(db_name))) as conn:
             with conn.cursor() as cursor:
-                cursor.execute(POSTGRES.COLUMN_QUERY)
+                cursor.execute(cls.COLUMN_QUERY)
                 rows = cursor.fetchall()
 
         columns = []
@@ -63,13 +69,11 @@ class POSTGRES:
         return columns
 
 
-def get_postgres_connection_kwargs(db_name="postgres"):
-    return POSTGRES.get_connection_kwargs(db_name)
-
-
-def get_databases():
-    return POSTGRES.get_databases()
-
-
-def fetch_columns_for_database(db_name):
-    return POSTGRES.fetch_columns_for_database(db_name)
+class DatabaseServiceFactory:
+    @staticmethod
+    def create(db_type):
+        services = {
+            "postgres": POSTGRES,
+        }
+        service_class = services.get(db_type)
+       

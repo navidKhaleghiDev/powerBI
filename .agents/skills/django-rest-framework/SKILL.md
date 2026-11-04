@@ -23,6 +23,8 @@ The current API is stateless. Connection credentials are not persisted. `DataBas
 - Serializer choices include `postgresql`, `mysql`, `clickhouse`, and `mssql`, but only `postgresql` maps to `POSTGRES`. When adding a backend, align the implementation, abstract contract, factory, validation, schema, and checks.
 - The configured service owns credentials and SQL. Use Psycopg 3 context managers and the existing 5-second connection timeout. Parameterize SQL values; preserve stable schema/table and ordinal column ordering.
 
+Celery task entry points belong in `apps/worker/`. When adding asynchronous execution, also read [the Celery worker skill](../celery-worker/SKILL.md). Preserve the synchronous API contract unless the requested feature changes it.
+
 ## Match runtime response shapes
 
 The connection test returns `success` and `message`. Table listing returns `success`, `database`, and a list of `schema.table` strings from `pg_tables`; it does not include views or nested columns. Column listing returns `success`, `database`, `table`, and column objects with `name`, `type`, `nullable`, `default`, `max_length`, `precision`, and `scale`.

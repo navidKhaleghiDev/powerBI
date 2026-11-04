@@ -1,4 +1,4 @@
-"""OpenAPI schema annotations for the database API."""
+"""OpenAPI schema annotations for the API."""
 
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -13,6 +13,9 @@ from apps.api.serializers import (
     DatabaseConnectionQuerySerializer,
     DatabaseConnectionResponseSerializer,
 )
+
+token_view_schema = extend_schema_view(post=extend_schema(tags=["token"]))
+
 
 database_viewset_schema = extend_schema_view(
     columns=extend_schema(

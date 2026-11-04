@@ -14,6 +14,7 @@
   - `apps/api/service/database_service.py` for configured backend services and their factory
   - `apps/api/serializers.py` for API payload serialization
 - `apps/core/` remains the core app for model and non-API project logic. Its registered configuration is `apps.core.apps.CoreConfig`.
+- `apps/worker/` is the dedicated app for Celery background tasks, registered as `apps.worker.apps.WorkerConfig`. Keep task entry points in `apps/worker/tasks.py` and project-wide Celery setup in `bi/`. Use canonical `apps.worker` imports.
 - Use `apps.core` consistently in imports when touching the core app, and use `apps.api` when touching API code. Although settings add `apps/` to `sys.path`, importing the same application under multiple names can create duplicate module identities.
 - The Django database is PostgreSQL. Keep local database files and credentials out of commits; commit migration files.
 - `README.md` documents local setup and development commands; update it when those instructions change.
@@ -21,6 +22,8 @@
 ## Local skills
 
 For Django REST Framework API work, read and follow [the REST Framework skill](.agents/skills/django-rest-framework/SKILL.md).
+
+For Celery setup, background tasks, or worker troubleshooting, read and follow [the Celery worker skill](.agents/skills/celery-worker/SKILL.md).
 
 Django REST Framework and drf-spectacular are installed and configured. The connection service uses Psycopg 3 (`psycopg`); `psycopg2-binary` is also currently declared. Read `pyproject.toml` and `uv.lock` before changing dependencies, and synchronize them with `uv add` when adding packages.
 

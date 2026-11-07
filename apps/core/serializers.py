@@ -115,7 +115,7 @@ class ConnectConfigSerializer(serializers.Serializer):
             "topic.prefix": ConnectorCharField(max_length=100),
             "slot.name": ConnectorCharField(max_length=63),
             "publication.name": ConnectorCharField(max_length=63),
-            "table.include.list": ConnectorCharField(source="tables"),
+            "table.include.list": ConnectorCharField(),
         })
         return fields
 

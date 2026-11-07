@@ -167,3 +167,6 @@ AUTH_USER_MODEL = "users.CustomUser"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+KAFKA_CONNECT_URL = os.getenv("KAFKA_CONNECT_URL", "")
+KAFKA_CONNECT_TIMEOUT = 10

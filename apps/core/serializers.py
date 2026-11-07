@@ -1,7 +1,10 @@
+from django.core.checks import database
 from rest_framework import serializers
 
 from apps.core.choices import DatabaseType
 from apps.core.models import DatabaseCatalog
+from apps.core.service.connect_service import ConnectService
+from utils.helper_funcs import get_connector_class, get_plugin_name
 
 
 class DatabaseColumnSerializer(serializers.Serializer):
@@ -81,3 +84,75 @@ class DatabaseCatalogSerializer(serializers.ModelSerializer):
         model = DatabaseCatalog
         fields = ("id", "db_type", "category", "image")
         read_only_fields = fields
+
+
+
+class ConnectConfigSerializer(serializers.Serializer):
+    def get_fields(self):
+        fields = super().get_fields()
+        fields.update({
+            "database.hostname": serializers.CharField(source="hostname", max_length=255),
+            "database.port": serializers.IntegerField(source="port", min_value=1, max_value=65535, default=5432),
+            "database.user": serializers.CharField(source="user", max_length=100),
+            "database.password": serializers.CharField(source="password", write_only=True, trim_whitespace=False, allow_blank=True),
+            "database.dbname": serializers.CharField(source="dbname", max_length=100),
+            "topic.prefix": serializers.CharField(source="topic_prefix", max_length=100),
+            "slot.name": serializers.CharField(source="slot", max_length=63),
+            "publication.name": serializers.CharField(source="publication", max_length=63),
+            "table.include.list": serializers.CharField(source="tables"),
+        })
+        return fields
+
+
+class CreateConnectorSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    db_type = serializers.ChoiceField(choices=DatabaseType.choices)
+    config = ConnectConfigSerializer()
+
+    def validate_db_type(self, value):
+        if get_connector_class(value) is None or get_plugin_name(value) is None:
+            raise serializers.ValidationError("Connector creation is not implemented for this database type.")
+        return value
+
+    def to_representation(self, instance):
+        # Restore source names for DRF representation and write-only filtering.
+        data = dict(instance)
+        config = data.get("config", {})
+        data["config"] = {
+            field.source: config[key] if key in config else config[field.source]
+            for key, field in self.fields["config"].fields.items()
+            if key in config or field.source in config
+        }
+        return super().to_representation(data)
+
+    @property
+    def validated_data(self):
+        """Build Kafka Connect properties without mutating DRF's validated data."""
+        data = super().validated_data.copy()
+        if not data:
+            return data
+
+        # Nested serializer sources use Python names; Connect requires dotted keys.
+        config_fields = self.fields["config"].fields
+        config = {
+            key: str(data["config"][field.source])
+            for key, field in config_fields.items()
+        }
+        config.update({
+            "connector.class": get_connector_class(data["db_type"]),
+            "plugin.name": get_plugin_name(data["db_type"]),
+            "tasks.max": "1",
+            "decimal.handling.mode": "string",
+            "transforms": "unwrap",
+            "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+            "transforms.unwrap.delete.handling.mode": "rewrite",
+            "transforms.unwrap.drop.tombstones": "true",
+            "transforms.unwrap.add.fields": "op,lsn",
+            "transforms.unwrap.add.fields.prefix": "__",
+            "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+            "value.converter.schemas.enable": "false",
+            "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+            "key.converter.schemas.enable": "false",
+        })
+        data["config"] = config
+        return data

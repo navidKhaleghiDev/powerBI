@@ -95,7 +95,7 @@ connect_viewset_schema = extend_schema_view(
     connector_config=extend_schema(
         tags=["Connect"],
         summary="Get connector configuration",
-        description="Staff users only. Fetches connector configuration by source name. Sensitive properties are redacted.",
+        description="Staff users only. Fetches connector configuration by source name through the Debezium UI proxy at /api/connectors/1/{source}/config. Sensitive properties are redacted.",
         parameters=[OpenApiParameter("source", OpenApiTypes.STR, OpenApiParameter.PATH, description="Kafka Connect connector name.", required=True)],
         responses={
             200: {"type": "object", "additionalProperties": {"type": "string"}},

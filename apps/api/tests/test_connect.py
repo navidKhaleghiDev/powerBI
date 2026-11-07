@@ -52,7 +52,7 @@ class ConnectListTests(SimpleTestCase):
         get.assert_not_called()
 
 
-@override_settings(KAFKA_CONNECT_URL='http://localhost:8083', KAFKA_CONNECT_TIMEOUT=10)
+@override_settings(KAFKA_CONNECT_URL='http://localhost:8083', DEBEZIUM_UI_URL='http://localhost:8080', KAFKA_CONNECT_TIMEOUT=10)
 class ConnectDetailTests(SimpleTestCase):
     def request(self, admin=True):
         request = APIRequestFactory().get('/api/connect/orders/')
@@ -66,7 +66,7 @@ class ConnectDetailTests(SimpleTestCase):
         response = self.request()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, expected)
-        get.assert_called_once_with('http://localhost:8083/connectors/orders/config', headers={'Accept': 'application/json'}, timeout=10)
+        get.assert_called_once_with('http://localhost:8080/api/connectors/1/orders/config', headers={'Accept': 'application/json'}, timeout=10)
 
     @patch('apps.core.service.connect_service.requests.get')
     def test_failure_responses(self, get):
@@ -86,7 +86,7 @@ class ConnectDetailTests(SimpleTestCase):
         self.assertEqual(self.request(admin=False).status_code, 403)
         get.assert_not_called()
 
-    @override_settings(KAFKA_CONNECT_URL='')
+    @override_settings(DEBEZIUM_UI_URL='')
     @patch('apps.core.service.connect_service.requests.get')
     def test_not_configured(self, get):
         self.assertEqual(self.request().status_code, 503)

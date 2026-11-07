@@ -170,3 +170,5 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 KAFKA_CONNECT_URL = os.getenv("KAFKA_CONNECT_URL", "")
 KAFKA_CONNECT_TIMEOUT = 10
+
+DEBEZIUM_UI_URL = os.getenv("DEBEZIUM_UI_URL", "http://localhost:8080")

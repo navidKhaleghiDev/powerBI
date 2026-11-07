@@ -35,11 +35,12 @@ class ConnectService(ConnectServiceInterface):
 
     def get_connector(self, source: str) -> tuple[dict, int]:
         """Fetch connector configuration with sensitive properties redacted."""
-        if not self.base_url:
+        base_url = settings.DEBEZIUM_UI_URL.rstrip("/")
+        if not base_url:
             return {"error": "not_configured"}, status.HTTP_503_SERVICE_UNAVAILABLE
         try:
             response = requests.get(
-                f"{self.base_url}/connectors/{quote(source, safe='')}/config",
+                f"{base_url}/api/connectors/1/{quote(source, safe='')}/config",
                 headers={"Accept": "application/json"},
                 timeout=settings.KAFKA_CONNECT_TIMEOUT,
             )

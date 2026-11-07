@@ -164,5 +164,23 @@ the script do not automatically run against an existing database.
 Start Kafka, Kafka Connect, and Kafka UI with `docker compose up -d kafka-ui`.
 Open http://localhost:8081 to inspect topics, partitions, messages, consumer groups,
 and connectors in the `bi` cluster. Kafka UI uses `kafka:29092` and
-`http://connect:8083` on `bi-net`; its web port is bound to localhost.
+`http://connect:8083` on `bi-net`; its web port is bound to all network interfaces.
 The existing Debezium UI remains available on port 8080.
+
+### ClickHouse
+
+Start ClickHouse with `docker compose up -d clickhouse`.
+The `financial_analytics` database is created automatically and stored in the
+`clickhouse_data` volume. HTTP is available at `http://localhost:8123`, and the
+native protocol at `localhost:9002`. Other containers use `clickhouse:8123` or
+`clickhouse:9000` on `bi-net`; ClickHouse can reach Kafka at `kafka:29092`.
+
+Local test credentials are hardcoded in Compose: user `bi`, password `clickhouse`.
+The service creates the database only; CDC tables and consumers must be created
+separately.
+
+Connector configuration uses the Debezium UI proxy for cluster `1`:
+`GET /api/connect/{source}/config/` calls
+`DEBEZIUM_UI_URL/api/connectors/1/{source}/config`.
+Set `DEBEZIUM_UI_URL=http://localhost:8080` in `.env`, or replace `localhost`
+with the Debezium UI server IP when it runs on another machine.

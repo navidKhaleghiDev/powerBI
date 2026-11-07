@@ -26,6 +26,7 @@ class DatabaseCatalog(DatabaseImageModel):
         constraints = [
             models.UniqueConstraint(fields=("category", "db_type"), name="unique_database_category_db_type"),
         ]
+        ordering = ("-id", )
 
     def __str__(self):
         return self.db_type or ""

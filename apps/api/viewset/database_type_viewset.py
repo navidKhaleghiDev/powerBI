@@ -21,5 +21,3 @@ class DatabaseCatalogViewSet(ListModelMixin, GenericViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = DatabaseCatalogFilter
     search_fields = ["db_type"]
-    ordering_fields = ["db_type", "category", "id"]
-    ordering = ["db_type", "id"]

@@ -1,4 +1,5 @@
 import requests
+from urllib.parse import quote
 from django.conf import settings
 from rest_framework import status
 
@@ -30,6 +31,39 @@ class ConnectService(ConnectServiceInterface):
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
             return {"error": "unavailable"}, status.HTTP_503_SERVICE_UNAVAILABLE
         except (requests.exceptions.HTTPError, ValueError):
+            return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
+
+    def get_connector(self, source: str) -> tuple[dict, int]:
+        """Fetch connector configuration with sensitive properties redacted."""
+        if not self.base_url:
+            return {"error": "not_configured"}, status.HTTP_503_SERVICE_UNAVAILABLE
+        try:
+            response = requests.get(
+                f"{self.base_url}/connectors/{quote(source, safe='')}/config",
+                headers={"Accept": "application/json"},
+                timeout=settings.KAFKA_CONNECT_TIMEOUT,
+            )
+            response.raise_for_status()
+            config = response.json()
+            if not isinstance(config, dict) or not all(
+                isinstance(key, str) and isinstance(value, str)
+                for key, value in config.items()
+            ):
+                return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
+            # Connector properties can include credentials and connection URLs.
+            return {
+                key: "[redacted]" if any(part in key.lower() for part in (
+                    "password", "secret", "token", "credential", "jaas", "connection.url",
+                )) else value
+                for key, value in config.items()
+            }, status.HTTP_200_OK
+        except requests.exceptions.HTTPError as error:
+            if error.response is not None and error.response.status_code == status.HTTP_404_NOT_FOUND:
+                return {"error": "not_found"}, status.HTTP_404_NOT_FOUND
+            return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            return {"error": "unavailable"}, status.HTTP_503_SERVICE_UNAVAILABLE
+        except ValueError:
             return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
 
     def create_connector(self, name: str, db_type: str, config: dict) -> tuple[dict, int]:

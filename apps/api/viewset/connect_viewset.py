@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
@@ -8,9 +9,19 @@ from apps.core.service.connect_service import ConnectService
 
 
 @connect_viewset_schema
-class ConnectViewSet(viewsets.GenericViewSet, viewsets.mixins.CreateModelMixin):
+class ConnectViewSet(viewsets.GenericViewSet,
+                     viewsets.mixins.CreateModelMixin,
+                     viewsets.mixins.ListModelMixin
+                     ):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = CreateConnectorSerializer
+
+
+    @action(detail=False, methods=["get"], url_path=r"(?P<source>[^/]+)/config")
+    def connector_config(self, request, source: str = None):
+        """Return configuration for the named connector."""
+        result, response_status = ConnectService().get_connector(source)
+        return Response(result, status=response_status)
 
     def list(self, request):
         """Return all connector names from Kafka Connect."""
@@ -24,5 +35,3 @@ class ConnectViewSet(viewsets.GenericViewSet, viewsets.mixins.CreateModelMixin):
         result, response_status = ConnectService().create_connector(**serializer.validated_data)
         # Preserve the status selected by the service, including upstream failures.
         return Response(result, status=response_status)
-
-    

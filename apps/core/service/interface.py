@@ -23,6 +23,11 @@ class ConnectServiceInterface(ABC):
     """Contract implemented by Kafka Connect services."""
 
     @abstractmethod
+    def get_connector(self, source: str) -> tuple[dict, int]:
+        """Return redacted connector configuration or an error with an HTTP status."""
+        pass
+
+    @abstractmethod
     def list_connectors(self) -> tuple[list[str] | dict, int]:
         """Return connector names or an error body with an HTTP status."""
         pass

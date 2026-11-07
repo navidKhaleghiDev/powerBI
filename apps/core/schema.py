@@ -2,6 +2,8 @@
 
 from drf_spectacular.utils import (
     OpenApiExample,
+    OpenApiParameter,
+    OpenApiTypes,
     extend_schema,
     extend_schema_view,
     inline_serializer,
@@ -90,6 +92,19 @@ connect_detail_response = inline_serializer(
 )
 
 connect_viewset_schema = extend_schema_view(
+    connector_config=extend_schema(
+        tags=["Connect"],
+        summary="Get connector configuration",
+        description="Staff users only. Fetches connector configuration by source name. Sensitive properties are redacted.",
+        parameters=[OpenApiParameter("source", OpenApiTypes.STR, OpenApiParameter.PATH, description="Kafka Connect connector name.", required=True)],
+        responses={
+            200: {"type": "object", "additionalProperties": {"type": "string"}},
+            401: connect_detail_response,
+            403: connect_detail_response,
+            **{code: {"type": "object", "properties": {"error": {"type": "string"}}, "required": ["error"]} for code in (404, 502, 503)},
+        },
+        filters=False,
+    ),
     list=extend_schema(
         tags=["Connect"],
         summary="List Kafka Connect connectors",

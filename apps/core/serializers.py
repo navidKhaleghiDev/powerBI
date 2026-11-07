@@ -79,5 +79,5 @@ class DatabaseTablesResponseSerializer(serializers.Serializer):
 class DatabaseCatalogSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatabaseCatalog
-        fields = ("id", "name", "category", "image")
+        fields = ("id", "db_type", "category", "image")
         read_only_fields = fields

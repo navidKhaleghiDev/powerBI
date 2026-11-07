@@ -141,6 +141,6 @@ three tables; catalog IDs may change during consolidation.
 
 The public catalog endpoint is `GET /api/database-types/`. It replaces the three
 category-specific catalog URLs. Use `?category=sql`, `?category=analytic`, or
-`?category=nosql` to filter the category, `?name=postgresql` for an exact name,
-`?search=post` for name search, `?ordering=-name` for sorting, and `?page=2`
-for pagination. Ordering supports `name`, `category`, and `id`.
+`?category=nosql` to filter the category, `?db_type=postgresql` for an exact database type,
+`?search=post` for database type search, `?ordering=-db_type` for sorting, and `?page=2`
+for pagination. Ordering supports `db_type`, `category`, and `id`.

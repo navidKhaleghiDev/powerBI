@@ -13,13 +13,13 @@ from utils.pagination import DatabaseTypePagination
 
 @database_catalog_viewset_schema
 class DatabaseCatalogViewSet(ListModelMixin, GenericViewSet):
-    queryset = DatabaseCatalog.objects.order_by("name", "id")
+    queryset = DatabaseCatalog.objects.order_by("db_type", "id")
     serializer_class = DatabaseCatalogSerializer
     pagination_class = DatabaseTypePagination
     permission_classes = [AllowAny]
     http_method_names = ["get", "head", "options"]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = DatabaseCatalogFilter
-    search_fields = ["name"]
-    ordering_fields = ["name", "category", "id"]
-    ordering = ["name", "id"]
+    search_fields = ["db_type"]
+    ordering_fields = ["db_type", "category", "id"]
+    ordering = ["db_type", "id"]

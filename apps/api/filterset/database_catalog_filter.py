@@ -6,4 +6,4 @@ from apps.core.models import DatabaseCatalog
 class DatabaseCatalogFilter(filters.FilterSet):
     class Meta:
         model = DatabaseCatalog
-        fields = ("category", "name")
+        fields = ("category", "db_type")

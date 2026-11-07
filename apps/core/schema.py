@@ -70,9 +70,9 @@ database_catalog_viewset_schema = extend_schema_view(
         tags=["Database types"],
         summary="List database types",
         description=(
-            "List stored database types with id, name, category, and image URL. "
-            "Filter by category (sql, analytic, nosql) or exact name; search by name. "
-            "Order by name, category, or id, using a minus prefix for descending order. "
+            "List stored database types with id, db_type, category, and image URL. "
+            "Filter by category (sql, analytic, nosql) or exact db_type; search by db_type. "
+            "Order by db_type, category, or id, using a minus prefix for descending order. "
             "Results contain 20 entries per page. Authentication is not required."
         ),
         responses={200: DatabaseCatalogSerializer(many=True)},

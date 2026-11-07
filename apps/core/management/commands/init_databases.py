@@ -9,7 +9,7 @@ class Command(BaseCommand):
     requires_migrations_checks = True
 
     def handle(self, *args, **options):
-        _, created = DatabaseCatalog.objects.get_or_create(name=DatabaseType.POSTGRESQL, category=DatabaseCategory.SQL)
+        _, created = DatabaseCatalog.objects.get_or_create(db_type=DatabaseType.POSTGRESQL, category=DatabaseCategory.SQL)
         if created:
             self.stdout.write(self.style.SUCCESS("Created PostgreSQL database type."))
         else:

@@ -1,6 +1,6 @@
 import psycopg
 from apps.core.service.database_interface import DatabaseService
-from apps.core.choices import SqlDatabaseType
+from apps.core.choices import DatabaseType
 
 
 class POSTGRES(DatabaseService):
@@ -133,7 +133,7 @@ class DatabaseServiceFactory:
     @staticmethod
     def get_service(db_type, **connection_kwargs) -> DatabaseService:
         services = {
-            SqlDatabaseType.POSTGRESQL: POSTGRES,
+            DatabaseType.POSTGRESQL: POSTGRES,
         }
         service_class = services.get(db_type)
         if not service_class:

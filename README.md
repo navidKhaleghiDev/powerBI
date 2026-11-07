@@ -30,7 +30,7 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-`init_databases` creates only the PostgreSQL entry in the `SqlDatabase` catalog.
+`init_databases` creates only the PostgreSQL entry in the `DatabaseCatalog` catalog with category `sql`.
 It is safe to run again; existing entries are preserved.
 
 For testing from another device, run `uv run python manage.py runserver 0.0.0.0:8000`.
@@ -133,3 +133,14 @@ The current settings are configured for local development. Before deploying, con
 Database types are defined by `DatabaseType` in `apps/core/choices.py`: `postgresql`,
 `mysql`, `clickhouse`, and `mssql`. Only PostgreSQL currently has a service
 implementation. Migration `core.0002` converts stored `postgres` values to `postgresql`.
+
+Database types share the `DatabaseCatalog` model, categorized as `sql`, `analytic`,
+or `nosql`. The existing catalog list APIs filter by category and include it in
+each result. Migration `core.0007` copies names and image paths from the former
+three tables; catalog IDs may change during consolidation.
+
+The public catalog endpoint is `GET /api/database-types/`. It replaces the three
+category-specific catalog URLs. Use `?category=sql`, `?category=analytic`, or
+`?category=nosql` to filter the category, `?name=postgresql` for an exact name,
+`?search=post` for name search, `?ordering=-name` for sorting, and `?page=2`
+for pagination. Ordering supports `name`, `category`, and `id`.

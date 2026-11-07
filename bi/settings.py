@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_filters',
     'rest_framework_simplejwt',
     'drf_spectacular',
     'apps.core.apps.CoreConfig',
@@ -70,9 +71,7 @@ SIMPLE_JWT = {
 
 SPECTACULAR_SETTINGS = {
     'ENUM_NAME_OVERRIDES': {
-        'NoSqlDatabaseTypeEnum': 'apps.core.choices.NoSqlDatabaseType.choices',
-        'SqlDatabaseTypeEnum': 'apps.core.choices.SqlDatabaseType.choices',
-        'AnalyticDatabaseTypeEnum': 'apps.core.choices.AnalyticDatabaseType.choices',
+        'DatabaseNameEnum': 'apps.core.choices.DatabaseType.choices',
     },
     'TITLE': 'BI API',
     'VERSION': '1.0.0',
@@ -157,10 +156,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "users.CustomUser"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"

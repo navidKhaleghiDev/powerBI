@@ -7,9 +7,7 @@ from drf_spectacular.utils import (
 )
 
 from apps.core.serializers import (
-    AnalyticDatabaseSerializer,
-    NoSqlDatabaseSerializer,
-    SqlDatabaseSerializer,
+    DatabaseCatalogSerializer,
     DatabaseColumnsQuerySerializer,
     DatabaseColumnsResponseSerializer,
     DatabaseTablesResponseSerializer,
@@ -67,46 +65,17 @@ database_viewset_schema = extend_schema_view(
 )
 
 
-sql_database_viewset_schema = extend_schema_view(
+database_catalog_viewset_schema = extend_schema_view(
     list=extend_schema(
         tags=["Database types"],
-        summary="List SQL databases",
+        summary="List database types",
         description=(
-            "Return stored SQL database types ordered by name. "
-            "Results are paginated with 20 entries per page; use the page query parameter. Each entry contains id and name. Authentication is not required. "
-            "Only entries saved in the catalog are returned."
+            "List stored database types with id, name, category, and image URL. "
+            "Filter by category (sql, analytic, nosql) or exact name; search by name. "
+            "Order by name, category, or id, using a minus prefix for descending order. "
+            "Results contain 20 entries per page. Authentication is not required."
         ),
-        responses={200: SqlDatabaseSerializer(many=True)},
-        filters=False,
-    ),
-)
-
-
-analytic_database_viewset_schema = extend_schema_view(
-    list=extend_schema(
-        tags=["Database types"],
-        summary="List analytic databases",
-        description=(
-            "Return stored analytic database types ordered by name. "
-            "Results are paginated with 20 entries per page; use the page query parameter. Each entry contains id and name. Authentication is not required. "
-            "Only entries saved in the catalog are returned."
-        ),
-        responses={200: AnalyticDatabaseSerializer(many=True)},
-        filters=False,
-    ),
-)
-
-
-no_sql_database_viewset_schema = extend_schema_view(
-    list=extend_schema(
-        tags=["Database types"],
-        summary="List NoSQL databases",
-        description=(
-            "Return stored NoSQL database types ordered by name. "
-            "Results are paginated with 20 entries per page; use the page query parameter. Each entry contains id and name. Authentication is not required. "
-            "Only entries saved in the catalog are returned."
-        ),
-        responses={200: NoSqlDatabaseSerializer(many=True)},
-        filters=False,
+        responses={200: DatabaseCatalogSerializer(many=True)},
+        filters=True,
     ),
 )

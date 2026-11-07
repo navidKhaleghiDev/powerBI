@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from apps.core.choices import SqlDatabaseType
-from apps.core.models import SqlDatabase
+from apps.core.choices import DatabaseCategory, DatabaseType
+from apps.core.models import DatabaseCatalog
 
 
 class Command(BaseCommand):
@@ -9,7 +9,7 @@ class Command(BaseCommand):
     requires_migrations_checks = True
 
     def handle(self, *args, **options):
-        _, created = SqlDatabase.objects.get_or_create(name=SqlDatabaseType.POSTGRESQL)
+        _, created = DatabaseCatalog.objects.get_or_create(name=DatabaseType.POSTGRESQL, category=DatabaseCategory.SQL)
         if created:
             self.stdout.write(self.style.SUCCESS("Created PostgreSQL database type."))
         else:

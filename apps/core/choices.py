@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class SqlDatabaseType(models.TextChoices):
+class DatabaseType(models.TextChoices):
     POSTGRESQL = "postgresql", "PostgreSQL"
     MYSQL = "mysql", "MySQL"
     MSSQL = "mssql", "Microsoft SQL Server"
@@ -9,8 +9,6 @@ class SqlDatabaseType(models.TextChoices):
     ORACLE = "oracle", "Oracle Database"
     SQLITE = "sqlite", "SQLite"
 
-
-class AnalyticDatabaseType(models.TextChoices):
     CLICKHOUSE = "clickhouse", "ClickHouse"
     SNOWFLAKE = "snowflake", "Snowflake"
     BIGQUERY = "bigquery", "Google BigQuery"
@@ -18,8 +16,6 @@ class AnalyticDatabaseType(models.TextChoices):
     DUCKDB = "duckdb", "DuckDB"
     DRUID = "druid", "Apache Druid"
 
-
-class NoSqlDatabaseType(models.TextChoices):
     MONGODB = "mongodb", "MongoDB"
     REDIS = "redis", "Redis"
     CASSANDRA = "cassandra", "Apache Cassandra"
@@ -27,3 +23,9 @@ class NoSqlDatabaseType(models.TextChoices):
     COUCHDB = "couchdb", "Apache CouchDB"
     COUCHBASE = "couchbase", "Couchbase"
     NEO4J = "neo4j", "Neo4j"
+
+
+class DatabaseCategory(models.TextChoices):
+    SQL = "sql", "SQL"
+    ANALYTIC = "analytic", "Analytic"
+    NOSQL = "nosql", "NoSQL"

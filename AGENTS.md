@@ -4,6 +4,7 @@
 
 - This is the `bi` Django project, managed with `uv`. Read `pyproject.toml` and `uv.lock` for current dependency versions; the project currently requires Python 3.13+ and Django 5.2.
 - Run commands from the repository root, alongside `manage.py`.
+- `utils/` contains shared helper functions and utility modules/packages, including reusable pagination classes in `utils/pagination.py`. Import these through the canonical `utils` package.
 - `bi/settings.py` contains settings, `bi/urls.py` contains root routes, and `bi/asgi.py` and `bi/wsgi.py` expose application entry points.
 - `apps/api/` is the dedicated DRF API app. Keep API routes, viewsets, serializers, and service logic under this package instead of the core app.
 - Correct API structure:

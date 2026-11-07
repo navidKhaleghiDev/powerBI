@@ -90,6 +90,18 @@ connect_detail_response = inline_serializer(
 )
 
 connect_viewset_schema = extend_schema_view(
+    list=extend_schema(
+        tags=["Connect"],
+        summary="List Kafka Connect connectors",
+        description="Requires a JWT access token for a staff user. Returns all connector names from the configured Kafka Connect service.",
+        responses={
+            200: {"type": "array", "items": {"type": "string"}},
+            401: connect_detail_response,
+            403: connect_detail_response,
+            **{code: {"type": "object", "properties": {"error": {"type": "string"}}, "required": ["error"]} for code in (502, 503)},
+        },
+        filters=False,
+    ),
     create=extend_schema(
         tags=["Connect"],
         summary="Create a Kafka Connect connector",

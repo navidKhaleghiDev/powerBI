@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import requests
 from django.test import SimpleTestCase, override_settings
@@ -8,63 +8,45 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from apps.api.viewset.connect_viewset import ConnectViewSet
 
 
-@override_settings(KAFKA_CONNECT_URL="http://connect:8083", KAFKA_CONNECT_TIMEOUT=10)
-class ConnectCreateTests(SimpleTestCase):
-    def setUp(self):
-        self.payload = {
-            "name": "orders", "db_type": "postgresql", "config": { "database.hostname": "postgres",
-            "database.user": "replicator", "database.password": " secret ",
-            "database.dbname": "bi", "topic.prefix": "bi",
-            "slot.name": "orders", "publication.name": "orders",
-            "table.include.list": "public.orders",
-            },
-        }
-
-    def request(self, payload=None, admin=True):
-        request = APIRequestFactory().post('/api/connect/', payload or self.payload, format='json')
+@override_settings(KAFKA_CONNECT_URL="http://localhost:8083", KAFKA_CONNECT_TIMEOUT=10)
+class ConnectListTests(SimpleTestCase):
+    def request(self, admin=True):
+        request = APIRequestFactory().get('/api/connect/')
         force_authenticate(request, user=SimpleNamespace(is_authenticated=True, is_staff=admin))
-        return ConnectViewSet.as_view({'post': 'create'})(request)
+        return ConnectViewSet.as_view({'get': 'list'})(request)
 
-    @patch('apps.core.service.connect_service.requests.post')
-    def test_create_forwards_config_without_exposing_credentials(self, post):
-        post.return_value = Mock(status_code=201)
-        response = self.request()
-        self.assertEqual(response.status_code, 201)
-        forwarded = post.call_args.kwargs['json']
-        self.assertEqual(forwarded['name'], 'orders')
-        self.assertNotIn('name', forwarded['config'])
-        self.assertEqual(forwarded['config']['database.password'], ' secret ')
-        self.assertEqual(forwarded['config']['database.port'], '5432')
-        self.assertEqual(forwarded['config']['topic.prefix'], 'bi')
-        self.assertNotIn('password', str(response.data))
-        self.assertEqual(post.call_args.args[0], 'http://connect:8083/connectors')
-        self.assertEqual(post.call_args.kwargs['timeout'], 10)
+    @patch('apps.core.service.connect_service.requests.get')
+    def test_lists_names_and_empty_cluster(self, get):
+        for names in (["orders", "customers"], []):
+            get.return_value.json.return_value = names
+            response = self.request()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data, names)
+        get.assert_called_with('http://localhost:8083/connectors', headers={'Accept': 'application/json'}, timeout=10)
 
-    @patch('apps.core.service.connect_service.requests.post')
-    def test_invalid_port_rejected_before_upstream_request(self, post):
-        response = self.request({**self.payload, 'config': {**self.payload['config'], 'database.port': 0}})
-        self.assertEqual(response.status_code, 400)
-        post.assert_not_called()
+    @patch('apps.core.service.connect_service.requests.get')
+    def test_invalid_upstream_response(self, get):
+        for payload in ({}, [123]):
+            get.return_value.json.return_value = payload
+            self.assertEqual(self.request().status_code, 502)
+        get.return_value.json.side_effect = ValueError('sensitive details')
+        self.assertEqual(self.request().data, {'error': 'upstream_error'})
 
-    @patch('apps.core.service.connect_service.requests.post')
-    def test_upstream_failure_is_sanitized(self, post):
-        for code, expected in [(400, 400), (409, 409), (500, 502)]:
-            post.return_value.raise_for_status.side_effect = requests.HTTPError(
-                'sensitive upstream details', response=Mock(status_code=code),
-            )
+    @patch('apps.core.service.connect_service.requests.get')
+    def test_network_and_http_failures(self, get):
+        for error, expected in ((requests.Timeout('sensitive'), 503), (requests.ConnectionError('sensitive'), 503), (requests.HTTPError('sensitive'), 502)):
+            get.side_effect = error
             response = self.request()
             self.assertEqual(response.status_code, expected)
             self.assertNotIn('sensitive', str(response.data))
-        post.side_effect = requests.Timeout('sensitive timeout')
-        self.assertEqual(self.request().status_code, 503)
 
-    @patch('apps.core.service.connect_service.requests.post')
-    def test_requires_administrator(self, post):
+    @patch('apps.core.service.connect_service.requests.get')
+    def test_requires_administrator(self, get):
         self.assertEqual(self.request(admin=False).status_code, 403)
-        post.assert_not_called()
+        get.assert_not_called()
 
     @override_settings(KAFKA_CONNECT_URL='')
-    @patch('apps.core.service.connect_service.requests.post')
-    def test_missing_configuration(self, post):
+    @patch('apps.core.service.connect_service.requests.get')
+    def test_missing_configuration(self, get):
         self.assertEqual(self.request().status_code, 503)
-        post.assert_not_called()
+        get.assert_not_called()

@@ -12,6 +12,11 @@ class ConnectViewSet(viewsets.GenericViewSet, viewsets.mixins.CreateModelMixin):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = CreateConnectorSerializer
 
+    def list(self, request):
+        """Return all connector names from Kafka Connect."""
+        result, response_status = ConnectService().list_connectors()
+        return Response(result, status=response_status)
+
     def create(self, request):
         """Validate connector settings and return the service result."""
         serializer = self.get_serializer(data=request.data)
@@ -20,4 +25,4 @@ class ConnectViewSet(viewsets.GenericViewSet, viewsets.mixins.CreateModelMixin):
         # Preserve the status selected by the service, including upstream failures.
         return Response(result, status=response_status)
 
-
+    

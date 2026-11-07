@@ -1,5 +1,5 @@
 import psycopg
-from apps.api.service.database_interface import DatabaseService
+from apps.core.service.database_interface import DatabaseService
 from apps.core.choices import DatabaseType
 
 

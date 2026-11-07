@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from apps.core.schema import database_viewset_schema
 from apps.core.serializers import DatabaseColumnsQuerySerializer, DatabaseConnectionQuerySerializer
-from apps.api.service.database_service import DatabaseServiceFactory
+from apps.core.service.database_service import DatabaseServiceFactory
 
 
 @database_viewset_schema

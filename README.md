@@ -144,3 +144,25 @@ category-specific catalog URLs. Use `?category=sql`, `?category=analytic`, or
 `?category=nosql` to filter the category, `?db_type=postgresql` for an exact database type,
 `?search=post` for database type search, `?ordering=-db_type` for sorting, and `?page=2`
 for pagination. Ordering supports `db_type`, `category`, and `id`.
+
+## Kafka UI
+
+### PostgreSQL test source
+
+Start the test source with `docker compose up -d postgres`.
+It creates `financial_db` with local test credentials `postgres` / `postgres`
+and enables logical replication with four WAL senders and replication slots.
+Connect from the host at `localhost:5433`; Kafka Connect uses `postgres:5432`
+on the shared `bi-net` network.
+
+Add test tables and seed data to `postgres/init.sql` before the first startup.
+The script runs only when the `pg_data` volume is first initialized; changes to
+the script do not automatically run against an existing database.
+
+### Kafka management UI
+
+Start Kafka, Kafka Connect, and Kafka UI with `docker compose up -d kafka-ui`.
+Open http://localhost:8081 to inspect topics, partitions, messages, consumer groups,
+and connectors in the `bi` cluster. Kafka UI uses `kafka:29092` and
+`http://connect:8083` on `bi-net`; its web port is bound to localhost.
+The existing Debezium UI remains available on port 8080.

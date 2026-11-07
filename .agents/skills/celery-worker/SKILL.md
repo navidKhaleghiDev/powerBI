@@ -25,3 +25,7 @@ Read `AGENTS.md`, `pyproject.toml`, `uv.lock`, `bi/settings.py`, `bi/__init__.py
 Run Django's system check for integration changes and focused checks for task outcomes, retries, and transaction behavior as relevant. Eager execution and mocks do not establish live broker connectivity or worker execution; report those separately.
 
 Update `README.md` when setup changes, using actual environment variable names and verified worker commands. Do not claim the worker is runnable before dependencies, application initialization, task discovery, and broker configuration are ready. Documentation-only changes need no Django tests.
+
+## Test policy
+
+Do not create, add, or modify automated tests unless the user explicitly requests them. Do not run test suites unless explicitly requested. Existing tests must remain untouched unless their modification or removal is requested. Use syntax checks, Django system checks, schema validation, or configuration validation as appropriate instead.

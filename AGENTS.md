@@ -40,7 +40,7 @@ Inspect `.agents/skills/` for other relevant skills as the repository evolves. O
 - Use Django authentication, permissions, validation, and CSRF protection appropriate to the feature. Keep secrets out of committed code and documentation.
 - Settings currently target local development and load environment values from `.env` using `python-dotenv` when needed.
 - Django’s own PostgreSQL configuration should use `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT` environment variables.
-- Keep changes focused and reviewable. Use Django's existing tooling for validation when needed, but do not force automatic test creation for every change.
+- Keep changes focused and reviewable. Do not create, add, or modify automated tests unless the user explicitly requests them. Do not run test suites unless explicitly requested. Existing tests must remain untouched unless their modification or removal is requested. Use syntax checks, Django system checks, schema validation, or configuration validation as appropriate instead.
 
 ## Database API flow
 
@@ -93,7 +93,7 @@ For schema or API documentation changes:
 uv run python manage.py spectacular --file /tmp/bi-openapi.yaml --validate --fail-on-warn
 ```
 
-For connection-flow changes, use mocked driver checks for credential forwarding, successful and failed connections, serializer validation, and resource cleanup. Report live database checks separately; mocked checks do not establish live connectivity.
+For connection-flow changes, inspect credential forwarding, connection handling, serializer validation, and resource cleanup. Do not add automated or mocked tests unless explicitly requested. Report live database checks separately from static validation.
 
 For model changes:
 

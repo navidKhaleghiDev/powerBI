@@ -35,9 +35,11 @@ Known drift: the table response serializer and Swagger description still describ
 
 ## Security and validation
 
+- Do not create, add, or modify automated tests unless the user explicitly requests them. Do not run test suites unless explicitly requested. Existing tests must remain untouched unless their modification or removal is requested. Use syntax checks, Django system checks, schema validation, or configuration validation as appropriate instead.
+
 - Send passwords in POST bodies, keep them write-only, preserve whitespace and allowed empty strings, and never return/log credentials or raw driver errors. Target request credentials are independent of Django's `POSTGRES_*` environment settings.
 - Preserve appropriate authentication, permissions, and CSRF protection. Current viewset permissions are not explicitly configured; do not claim it enforces authentication.
 - For Python changes, check syntax and run `uv run python manage.py check`. For schema changes, run `uv run python manage.py spectacular --file /tmp/bi-openapi.yaml --validate --fail-on-warn`.
 - Use `.venv/bin/python` when uv cannot run, as described in `AGENTS.md`. For model changes, follow its migration commands and preserve applied history.
-- For service/API changes, mock the driver to check credential forwarding, parameterized queries, result mapping, empty lists, failures, cleanup, and serializer rejection as relevant. Verify schema shapes separately from schema validity. Distinguish live connectivity from mocked checks.
+- For service/API changes, inspect credential forwarding, parameterized queries, result mapping, empty lists, failures, cleanup, and serializer validation. Verify schema shapes separately from schema validity. Do not introduce mocked tests unless explicitly requested.
 - Documentation-only updates need no Django test suite. Report changed files, executed validation, and unresolved findings accurately.

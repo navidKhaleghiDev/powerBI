@@ -19,7 +19,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.api.schema import token_view_schema
+from apps.core.schema import token_view_schema
 
 urlpatterns = [
     path("schema/", SpectacularAPIView.as_view(), name="schema"),

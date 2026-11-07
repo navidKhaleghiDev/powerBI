@@ -3,8 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.api.schema import database_viewset_schema
-from apps.api.serializers import DatabaseColumnsQuerySerializer, DatabaseConnectionQuerySerializer
+from apps.core.schema import database_viewset_schema
+from apps.core.serializers import DatabaseColumnsQuerySerializer, DatabaseConnectionQuerySerializer
 from apps.api.service.database_service import DatabaseServiceFactory
 
 

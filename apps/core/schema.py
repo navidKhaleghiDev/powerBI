@@ -6,7 +6,7 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 
-from apps.api.serializers import (
+from apps.core.serializers import (
     DatabaseColumnsQuerySerializer,
     DatabaseColumnsResponseSerializer,
     DatabaseTablesResponseSerializer,

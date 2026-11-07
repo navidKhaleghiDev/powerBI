@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from apps.core.choices import DatabaseType
+from apps.core.choices import SqlDatabaseType
+from apps.core.models import AnalyticDatabase, NoSqlDatabase, SqlDatabase
 
 
 class DatabaseColumnSerializer(serializers.Serializer):
@@ -16,7 +17,7 @@ class DatabaseColumnSerializer(serializers.Serializer):
 
 class DatabaseConnectionQuerySerializer(serializers.Serializer):
     db_type = serializers.ChoiceField(
-        choices=DatabaseType.choices,
+        choices=SqlDatabaseType.choices,
         help_text="Database type. Only PostgreSQL connection testing is currently implemented.",
     )
     host = serializers.CharField(max_length=255)
@@ -73,3 +74,24 @@ class DatabaseTablesResponseSerializer(serializers.Serializer):
     database = serializers.CharField()
     tables = DatabaseTableColumnsSerializer(many=True)
     message = serializers.CharField(required=False)
+
+
+class SqlDatabaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SqlDatabase
+        fields = ("id", "name")
+        read_only_fields = fields
+
+
+class AnalyticDatabaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalyticDatabase
+        fields = ("id", "name")
+        read_only_fields = fields
+
+
+class NoSqlDatabaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NoSqlDatabase
+        fields = ("id", "name")
+        read_only_fields = fields

@@ -69,6 +69,11 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
+    'ENUM_NAME_OVERRIDES': {
+        'NoSqlDatabaseTypeEnum': 'apps.core.choices.NoSqlDatabaseType.choices',
+        'SqlDatabaseTypeEnum': 'apps.core.choices.SqlDatabaseType.choices',
+        'AnalyticDatabaseTypeEnum': 'apps.core.choices.AnalyticDatabaseType.choices',
+    },
     'TITLE': 'BI API',
     'VERSION': '1.0.0',
 }

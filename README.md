@@ -25,9 +25,13 @@ cp .env.example .env
 ```bash
 uv sync --locked
 uv run python manage.py migrate
+uv run python manage.py init_databases
 uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
+
+`init_databases` creates only the PostgreSQL entry in the `SqlDatabase` catalog.
+It is safe to run again; existing entries are preserved.
 
 For testing from another device, run `uv run python manage.py runserver 0.0.0.0:8000`.
 The VS Code launch configuration also listens on all interfaces. Local development

@@ -220,6 +220,87 @@ Query the latest non-deleted orders with:
 SELECT * FROM financial_analytics.orders_current FINAL WHERE is_deleted = 0;
 ```
 
+### Provision consumer pipelines through the API
+
+For the supplied Compose stack, run Django on the host with `CONSUMER_HOST=localhost`,
+`CONSUMER_PORT=8123`, `CONSUMER_USER=bi`, `CONSUMER_PASSWORD=clickhouse`, and
+`CONSUMER_DATABASE=financial_analytics`. If Django runs on `bi-net`, use
+`CONSUMER_HOST=clickhouse`. ClickHouse uses `CLICKHOUSE_KAFKA_BROKERS=kafka:29092`
+to reach Kafka over PLAINTEXT, without SASL credentials. These broker addresses
+are resolved by ClickHouse, not Django.
+
+`ConsumerServiceFactory` selects the destination implementation using `db_type`,
+which defaults to `clickhouse`. Only ClickHouse consumers are implemented;
+other recognized database types return HTTP 400 without provisioning objects.
+Services return a result body and HTTP status, following the Connect service pattern.
+
+Send `POST /api/consumer/pipelines/` with a staff user's JWT access token
+in the `Authorization: Bearer <token>` header:
+
+```json
+{
+  "warehouse_name": "financial_analytics",
+  "table.include.list": "public.orders",
+  "topic.prefix": "bi",
+  "tables": [
+    {
+      "source_table": "public.orders",
+      "target_table": "sales",
+      "columns": [
+        {"source": "id", "target": "record_id", "type": "Int32"},
+        {"source": "customer_name", "target": "client_name", "type": "Nullable(String)"},
+        {"source": "amount", "target": "total_amount", "type": "Nullable(Int32)"},
+        {"source": "product_name", "target": "item_name", "type": "Nullable(String)"}
+      ],
+      "order_by": ["record_id"]
+    }
+  ]
+}
+```
+
+The client supplies `warehouse_name` in the request body. It selects the existing
+destination database; the API does not create it. Responses identify it as
+`database`. Django connects using `CONSUMER_HOST`,
+`CONSUMER_PORT`, `CONSUMER_USER`, and `CONSUMER_PASSWORD` from `.env`;
+`CLICKHOUSE_KAFKA_BROKERS` must be reachable from ClickHouse.
+No PostgreSQL connection is made and no Kafka Connect connector is created.
+
+For each client-supplied target table name, the API creates `<name>_raw`,
+`<name>_current`, `<name>_kafka`, `<name>_current_mv`, and `<name>_mv`.
+Send `table.include.list` as comma-separated literal schema-qualified names and
+`topic.prefix` as a string. Each source consumes `<topic.prefix>.<schema>.<table>`.
+For example, `public.orders` and `bi` produce `bi.public.orders`.
+Each entry in `tables` supplies `source_table` (schema-qualified), `target_table`,
+column mappings, and `order_by`. Source tables must match the include list exactly.
+Source tables and target tables must each be unique; regex include patterns are
+rejected. Different schemas may contain the same source table name when mapped
+to distinct target tables.
+Each Kafka source uses one consumer and a separate group per database, table,
+and generated topic.
+
+Each column specifies `source`, `target`, and `type`. Kafka tables use source
+names. Raw and current tables use target names; the Kafka-to-raw view applies
+the aliases. For example, `customer_name` becomes `client_name` in `sales_raw`
+and `sales_current`. Supply ClickHouse types:
+integer and floating-point types, String, Bool, UUID, Date, Date32, DateTime,
+DateTime64(precision), Decimal(precision, scale), or Nullable wrappers.
+Other type expressions are rejected. Table and column names must be simple
+SQL identifiers. `order_by` must list unique, non-nullable target column names from the
+same table; use the source row's stable unique key, including all parts of a
+composite key, so updates and deletes replace the correct row.
+
+Debezium fields `__deleted`, `__op`, and `__lsn` are added automatically;
+current tables also add `version` and `is_deleted`. These names are reserved.
+The Kafka messages must contain the supplied columns and unwrapped CDC metadata.
+SQL is generated directly from validated input; no SQL template file is read.
+
+Success returns HTTP 200 with `success`, `database`, and `tables` (completed
+target table names). Existing objects are preserved with `IF NOT EXISTS`; repeating
+a request does not change their definitions or topics. Driver failures return
+HTTP 400 with a generic message and completed table names. DDL is not
+transactional: a failed table may have partially created objects. This endpoint
+does not verify Kafka connectivity or that events have been consumed.
+
 Connector configuration uses the Debezium UI proxy for cluster `1`:
 `GET /api/connect/{source}/config/` calls
 `DEBEZIUM_UI_URL/api/connectors/1/{source}/config`.

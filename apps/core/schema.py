@@ -3,12 +3,15 @@
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
+    OpenApiResponse,
     OpenApiTypes,
     extend_schema,
     extend_schema_view,
     inline_serializer,
 )
 from rest_framework import serializers
+
+from apps.api.serializers import ConsumerResponseSerializer, ConsumerSerializer
 
 from apps.core.serializers import (
     CreateConnectorSerializer,
@@ -21,7 +24,6 @@ from apps.core.serializers import (
 )
 
 token_view_schema = extend_schema_view(post=extend_schema(tags=["token"]))
-
 
 database_viewset_schema = extend_schema_view(
     columns=extend_schema(
@@ -69,7 +71,6 @@ database_viewset_schema = extend_schema_view(
     ),
 )
 
-
 database_catalog_viewset_schema = extend_schema_view(
     list=extend_schema(
         tags=["Database types"],
@@ -85,7 +86,6 @@ database_catalog_viewset_schema = extend_schema_view(
     ),
 )
 
-
 connect_detail_response = inline_serializer(
     name="ConnectDetailResponse",
     fields={"detail": serializers.CharField()},
@@ -95,10 +95,12 @@ connect_message_response = inline_serializer(
     name="ConnectMessageResponse",
     fields={"message": serializers.CharField()},
 )
+
 connect_error_response = inline_serializer(
     name="ConnectErrorResponse",
     fields={"error": serializers.CharField()},
 )
+
 connect_auth_responses = {401: connect_detail_response, 403: connect_detail_response}
 
 connect_viewset_schema = extend_schema_view(
@@ -184,6 +186,80 @@ connect_viewset_schema = extend_schema_view(
             502: connect_error_response,
             503: connect_message_response,
             **connect_auth_responses,
+        },
+        filters=False,
+    ),
+)
+
+consumer_viewset_schema = extend_schema_view(
+    create=extend_schema(
+        tags=['Consumer'],
+        summary='Create mapped ClickHouse tables and Kafka consumers',
+        description=(
+            'Staff users only. Send warehouse_name, table.include.list, topic.prefix, and tables with source_table, '
+            'target_table, columns (source/target/type), and order_by using target column names. '
+            'Topics are derived as prefix.source_table. Kafka columns use source names; raw and current '
+            'columns use target names. The database must already exist. CDC metadata is added automatically. '
+            'Existing objects are preserved. DDL is not transactional; failures may leave partial objects.'
+            ' Each target creates _raw, _current, _kafka, _current_mv, and _mv objects. '
+            'order_by must identify the row using non-nullable target columns. '
+            'Source tables must match the comma-separated literal table.include.list exactly. '
+            'Requires a JWT access token belonging to a staff user.'
+            ' db_type selects the destination backend and defaults to clickhouse; '
+            'other backends return HTTP 400 without provisioning objects.'
+        ),
+        request=ConsumerSerializer,
+        examples=[
+            OpenApiExample(
+                'Map orders to sales',
+                request_only=True,
+                value={
+                    'warehouse_name': 'financial_analytics',
+                    'db_type': 'clickhouse',
+                    'table.include.list': 'public.orders',
+                    'topic.prefix': 'bi',
+                    'tables': [{
+                        'source_table': 'public.orders',
+                        'target_table': 'sales',
+                        'columns': [
+                            {'source': 'id', 'target': 'record_id', 'type': 'Int32'},
+                            {'source': 'customer_name', 'target': 'client_name', 'type': 'Nullable(String)'},
+                        ],
+                        'order_by': ['record_id'],
+                    }],
+                },
+            ),
+            OpenApiExample(
+                'Consumer provisioned', response_only=True, status_codes=['200', '201'],
+                value={'success': True, 'database': 'financial_analytics', 'tables': ['sales']},
+            ),
+            OpenApiExample(
+                'Provisioning failed', response_only=True, status_codes=['400'],
+                value={
+                    'success': False, 'database': 'financial_analytics', 'tables': [],
+                    'message': 'Unable to provision the consumer pipeline. Partial objects may exist.',
+                },
+            ),
+            OpenApiExample(
+                'Invalid table mapping', response_only=True, status_codes=['400'],
+                value={'tables': ['source_table entries must match table.include.list exactly.']},
+            ),
+            OpenApiExample(
+                'Authentication required', response_only=True, status_codes=['401'],
+                value={'detail': 'Authentication credentials were not provided.'},
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(ConsumerResponseSerializer, description='Provisioned or already existing objects; tables lists completed target names.'),
+            201: OpenApiResponse(ConsumerResponseSerializer, description='Consumer created (reserved; provisioning currently returns 200).'),
+            400: OpenApiResponse(
+                response={'oneOf': [
+                    {'$ref': '#/components/schemas/ConsumerResponse'},
+                    {'type': 'object', 'additionalProperties': {}, 'description': 'DRF field or non-field validation errors.'},
+                ]},
+                description='Validation errors or a sanitized provisioning failure. Partial objects may exist.',
+            ),
+            401: OpenApiResponse(connect_detail_response, description='JWT access token missing or invalid.'),
         },
         filters=False,
     ),

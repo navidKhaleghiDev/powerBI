@@ -1,6 +1,18 @@
 from abc import ABC, abstractmethod
 
 
+class ConsumerServiceInterface(ABC):
+    """Contract for provisioning consumer pipelines from validated input."""
+
+    @abstractmethod
+    def create(self, database: str, topic: str, tables: list[dict]) -> tuple[dict, int]:
+        """Provision an existing database; return a sanitized result and HTTP status.
+
+        Failures include a sanitized message and may leave partially created objects.
+        """
+        pass
+
+
 class DatabaseService(ABC):
     """Contract implemented by configured database services."""
 

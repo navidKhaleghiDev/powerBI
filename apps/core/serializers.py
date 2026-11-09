@@ -152,5 +152,6 @@ class CreateConnectorSerializer(serializers.Serializer):
             "value.converter.schemas.enable": "false",
             "key.converter": "org.apache.kafka.connect.json.JsonConverter",
             "key.converter.schemas.enable": "false",
+            "snapshot.mode": "always",
         })
         return data

@@ -173,8 +173,9 @@ KAFKA_CONNECT_TIMEOUT = 10
 
 DEBEZIUM_UI_URL = os.getenv("DEBEZIUM_UI_URL", "http://localhost:8080")
 
-CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "localhost")
-CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
-CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "bi")
-CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
+CONSUMER_HOST = os.getenv("CONSUMER_HOST", "localhost")
+CONSUMER_PORT = int(os.getenv("CONSUMER_PORT", "8123"))
+CONSUMER_USER = os.getenv("CONSUMER_USER", "bi")
+CONSUMER_PASSWORD = os.getenv("CONSUMER_PASSWORD", "clickhouse")
 CLICKHOUSE_KAFKA_BROKERS = os.getenv("CLICKHOUSE_KAFKA_BROKERS", "kafka:29092")
+CONSUMER_DATABASE = os.getenv("CONSUMER_DATABASE", "financial_analytics")

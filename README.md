@@ -159,6 +159,19 @@ Add test tables and seed data to `postgres/init.sql` before the first startup.
 The script runs only when the `pg_data` volume is first initialized; changes to
 the script do not automatically run against an existing database.
 
+### pgAdmin
+
+Run `docker compose up -d pgadmin`, then open http://localhost:5050.
+The local development login is hardcoded in Compose: email `admin@example.com`,
+password `admin`.
+The web port is bound to localhost, and pgAdmin settings persist in the
+`pgadmin_data` volume. The login variables initialize the account on first startup;
+change an existing account's password through pgAdmin.
+
+Use **Register > Server** to add the Compose PostgreSQL instance with host
+`postgres`, port `5432`, maintenance database `financial_db`, and the local test
+credentials documented above. Give the server any display name.
+
 ### Kafka management UI
 
 Start Kafka, Kafka Connect, and Kafka UI with `docker compose up -d kafka-ui`.
@@ -176,8 +189,36 @@ native protocol at `localhost:9002`. Other containers use `clickhouse:8123` or
 `clickhouse:9000` on `bi-net`; ClickHouse can reach Kafka at `kafka:29092`.
 
 Local test credentials are hardcoded in Compose: user `bi`, password `clickhouse`.
-The service creates the database only; CDC tables and consumers must be created
-separately.
+The service mounts `clickhouse/init.sql` to initialize the raw events table,
+current state table, Kafka source, and materialized views. Starting ClickHouse
+also starts Kafka. The consumer reads `bi.public.orders`, matching the connector's
+`topic.prefix: bi`, with unwrapped JSON records containing `__deleted`, `__op`,
+and `__lsn`.
+
+For the Compose PostgreSQL source, configure the connector with
+`database.hostname: postgres` and `database.port: 5432`. The supplied external
+host and port `5433` apply only when connecting through that host's published port.
+Keep the connector password in your local configuration.
+
+To apply the SQL manually to an existing running ClickHouse instance:
+
+```bash
+docker compose exec -T clickhouse sh -c 'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --multiquery' < clickhouse/init.sql
+```
+
+The SQL uses `IF NOT EXISTS`, so it does not update existing table definitions.
+If `orders_kafka` already uses the old topic, change it explicitly:
+
+```sql
+ALTER TABLE financial_analytics.orders_kafka
+MODIFY SETTING kafka_topic_list = 'bi.public.orders';
+```
+
+Query the latest non-deleted orders with:
+
+```sql
+SELECT * FROM financial_analytics.orders_current FINAL WHERE is_deleted = 0;
+```
 
 Connector configuration uses the Debezium UI proxy for cluster `1`:
 `GET /api/connect/{source}/config/` calls

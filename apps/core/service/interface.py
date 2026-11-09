@@ -23,6 +23,11 @@ class ConnectServiceInterface(ABC):
     """Contract implemented by Kafka Connect services."""
 
     @abstractmethod
+    def delete_connector(self, name: str) -> tuple[dict | None, int]:
+        """Return an empty body on deletion or a sanitized error with an HTTP status."""
+        pass
+
+    @abstractmethod
     def get_connector(self, source: str) -> tuple[dict, int]:
         """Return redacted connector configuration or an error with an HTTP status."""
         pass

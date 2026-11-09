@@ -28,6 +28,12 @@ class ConnectViewSet(viewsets.GenericViewSet,
         result, response_status = ConnectService().list_connectors()
         return Response(result, status=response_status)
 
+    @action(detail=False, methods=["delete"], url_path=r"(?P<name>[^/]+)")
+    def delete_connector(self, request, name: str = None):
+        """Delete the named connector from Kafka Connect."""
+        result, response_status = ConnectService().delete_connector(name)
+        return Response(result, status=response_status)
+
     def create(self, request):
         """Validate connector settings and return the service result."""
         serializer = self.get_serializer(data=request.data)

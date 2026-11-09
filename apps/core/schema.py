@@ -91,7 +91,29 @@ connect_detail_response = inline_serializer(
     fields={"detail": serializers.CharField()},
 )
 
+connect_message_response = inline_serializer(
+    name="ConnectMessageResponse",
+    fields={"message": serializers.CharField()},
+)
+connect_error_response = inline_serializer(
+    name="ConnectErrorResponse",
+    fields={"error": serializers.CharField()},
+)
+connect_auth_responses = {401: connect_detail_response, 403: connect_detail_response}
+
 connect_viewset_schema = extend_schema_view(
+    delete_connector=extend_schema(
+        tags=["Connect"],
+        summary="Delete a Kafka Connect connector",
+        description="Requires a JWT access token for a staff user. Deletes the named connector from Kafka Connect and returns HTTP 204 with no response body.",
+        parameters=[OpenApiParameter("name", OpenApiTypes.STR, OpenApiParameter.PATH, description="Connector name.")],
+        request=None,
+        responses={
+            204: None,
+            **connect_auth_responses,
+        },
+        filters=False,
+    ),
     connector_config=extend_schema(
         tags=["Connect"],
         summary="Get connector configuration",
@@ -99,9 +121,7 @@ connect_viewset_schema = extend_schema_view(
         parameters=[OpenApiParameter("source", OpenApiTypes.STR, OpenApiParameter.PATH, description="Kafka Connect connector name.", required=True)],
         responses={
             200: {"type": "object", "additionalProperties": {"type": "string"}},
-            401: connect_detail_response,
-            403: connect_detail_response,
-            **{code: {"type": "object", "properties": {"error": {"type": "string"}}, "required": ["error"]} for code in (404, 502, 503)},
+            **connect_auth_responses,
         },
         filters=False,
     ),
@@ -111,9 +131,7 @@ connect_viewset_schema = extend_schema_view(
         description="Requires a JWT access token for a staff user. Returns all connector names from the configured Kafka Connect service.",
         responses={
             200: {"type": "array", "items": {"type": "string"}},
-            401: connect_detail_response,
-            403: connect_detail_response,
-            **{code: {"type": "object", "properties": {"error": {"type": "string"}}, "required": ["error"]} for code in (502, 503)},
+            **connect_auth_responses,
         },
         filters=False,
     ),
@@ -121,11 +139,8 @@ connect_viewset_schema = extend_schema_view(
         tags=["Connect"],
         summary="Create a Kafka Connect connector",
         description=(
-            "Requires a JWT access token for a staff user. Send name, db_type, "
-            "and a nested config object using dotted Kafka Connect property names. "
-            "Successful creation returns HTTP 201. "
-            "Inspect message for created, not_configured, upstream_error, or unavailable. "
-            "Rejected requests return HTTP 400, missing resources 404, conflicts 409, upstream failures 502, and unavailable or unconfigured services 503."
+            "Staff users only. Send name, db_type, and config with dotted Kafka Connect "
+            "property names. Returns 201 when created."
         ),
         request=CreateConnectorSerializer,
         examples=[
@@ -162,19 +177,13 @@ connect_viewset_schema = extend_schema_view(
             ),
         ],
         responses={
-            201: {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string", "description": "Service result or upstream error message."},
-                    "error_code": {"type": "integer", "description": "Error code when supplied by Kafka Connect."},
-                },
-                "additionalProperties": True,
-                "description": "Service result or upstream Kafka Connect error JSON.",
-            },
-            400: {"type": "object", "additionalProperties": True, "description": "Serializer validation errors or a rejected connector request."},
-            **{code: {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]} for code in (404, 409, 502, 503)},
-            401: connect_detail_response,
-            403: connect_detail_response,
+            201: connect_message_response,
+            400: OpenApiTypes.OBJECT,
+            404: connect_error_response,
+            409: connect_error_response,
+            502: connect_error_response,
+            503: connect_message_response,
+            **connect_auth_responses,
         },
         filters=False,
     ),

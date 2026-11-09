@@ -13,6 +13,29 @@ class ConnectService(ConnectServiceInterface):
         """Load the Connect base URL without trailing slashes."""
         self.base_url = settings.KAFKA_CONNECT_URL.rstrip("/")
 
+    def delete_connector(self, name: str) -> tuple[dict | None, int]:
+        """Delete a connector without exposing upstream error details."""
+        if not self.base_url:
+            return {"error": "not_configured"}, status.HTTP_503_SERVICE_UNAVAILABLE
+        try:
+            response = requests.delete(
+                f"{self.base_url}/connectors/{quote(name, safe='')}",
+                headers={"Accept": "application/json"},
+                timeout=settings.KAFKA_CONNECT_TIMEOUT,
+            )
+            response.raise_for_status()
+            if response.status_code == status.HTTP_204_NO_CONTENT:
+                return None, status.HTTP_204_NO_CONTENT
+            return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
+        except requests.exceptions.HTTPError as error:
+            if error.response is not None and error.response.status_code == status.HTTP_404_NOT_FOUND:
+                return {"error": "not_found"}, status.HTTP_404_NOT_FOUND
+            if error.response is not None and error.response.status_code == status.HTTP_409_CONFLICT:
+                return {"error": "conflict"}, status.HTTP_409_CONFLICT
+            return {"error": "upstream_error"}, status.HTTP_502_BAD_GATEWAY
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            return {"error": "unavailable"}, status.HTTP_503_SERVICE_UNAVAILABLE
+
     def list_connectors(self) -> tuple[list[str] | dict, int]:
         """Fetch all connector names without exposing upstream error details."""
         if not self.base_url:

@@ -1,6 +1,4 @@
 """Shared PostgreSQL and ClickHouse data type constants."""
-
-
 class PostgresDataType:
     """PostgreSQL type names reported by information_schema.columns."""
 
@@ -29,6 +27,7 @@ class PostgresDataType:
     CIDR = "cidr"
     MACADDR = "macaddr"
     MACADDR8 = "macaddr8"
+
 
 
 class ClickHouseDataType:

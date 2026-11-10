@@ -35,7 +35,8 @@ It is safe to run again; existing entries are preserved.
 
 For testing from another device, run `uv run python manage.py runserver 0.0.0.0:8000`.
 The VS Code launch configuration also listens on all interfaces. Local development
-settings accept all hosts with `ALLOWED_HOSTS = ["*"]`.
+settings accept all hosts with `ALLOWED_HOSTS = ["*"]` and allow browser requests
+from all origins with `CORS_ALLOW_ALL_ORIGINS = True` using `django-cors-headers`.
 
 Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:8000/admin/ to sign in with your superuser account.
 

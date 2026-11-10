@@ -7,6 +7,18 @@ from utils.consumers import (
     # validate_column_type,
 )
 
+
+class DataTypeQuerySerializer(serializers.Serializer):
+    db_type = serializers.ChoiceField(
+        choices=[DatabaseType.POSTGRESQL, DatabaseType.CLICKHOUSE],
+    )
+
+
+class DataTypeResponseSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    value = serializers.CharField()
+
+
 class ConsumerColumnSerializer(serializers.Serializer):
     source = serializers.CharField(max_length=63)
     target = serializers.CharField(max_length=63)

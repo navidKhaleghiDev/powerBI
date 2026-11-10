@@ -1,9 +1,65 @@
 import psycopg
-from apps.core.service.interface import DatabaseService
+
 from apps.core.choices import DatabaseType
+from apps.core.service.interface import DatabaseService
+from utils.data_types import ClickHouseDataType, PostgresDataType
 
 
 class POSTGRES(DatabaseService):
+    CLICKHOUSE_TYPES = {
+        PostgresDataType.SMALLINT: ClickHouseDataType.SMALLINT,
+        PostgresDataType.INTEGER: ClickHouseDataType.INTEGER,
+        PostgresDataType.BIGINT: ClickHouseDataType.BIGINT,
+        PostgresDataType.REAL: ClickHouseDataType.REAL,
+        PostgresDataType.DOUBLE_PRECISION: ClickHouseDataType.DOUBLE_PRECISION,
+        PostgresDataType.BOOLEAN: ClickHouseDataType.BOOLEAN,
+        PostgresDataType.CHARACTER: ClickHouseDataType.CHARACTER,
+        PostgresDataType.CHARACTER_VARYING: ClickHouseDataType.CHARACTER_VARYING,
+        PostgresDataType.TEXT: ClickHouseDataType.TEXT,
+        PostgresDataType.BYTEA: ClickHouseDataType.BYTEA,
+        PostgresDataType.UUID: ClickHouseDataType.UUID,
+        PostgresDataType.JSON: ClickHouseDataType.JSON,
+        PostgresDataType.JSONB: ClickHouseDataType.JSONB,
+        PostgresDataType.DATE: ClickHouseDataType.DATE,
+        PostgresDataType.TIME_WITHOUT_TIME_ZONE: ClickHouseDataType.TIME_WITHOUT_TIME_ZONE,
+        PostgresDataType.TIME_WITH_TIME_ZONE: ClickHouseDataType.TIME_WITH_TIME_ZONE,
+        PostgresDataType.INTERVAL: ClickHouseDataType.INTERVAL,
+        PostgresDataType.XML: ClickHouseDataType.XML,
+        PostgresDataType.INET: ClickHouseDataType.INET,
+        PostgresDataType.CIDR: ClickHouseDataType.CIDR,
+        PostgresDataType.MACADDR: ClickHouseDataType.MACADDR,
+        PostgresDataType.MACADDR8: ClickHouseDataType.MACADDR8,
+    }
+
+    @staticmethod
+    def to_consumer_type(
+        data_type: str,
+        nullable: bool = False,
+        precision: int | None = None,
+        scale: int | None = None,
+        datetime_precision: int | None = None,
+    ) -> str | None:
+        """Suggest a destination type, or None when manual mapping is needed."""
+        if data_type == PostgresDataType.NUMERIC:
+            if (
+                precision is None
+                or scale is None
+                or not (1 <= precision <= 76 and 0 <= scale <= precision)
+            ):
+                return None
+            target_type = f"{ClickHouseDataType.DECIMAL}({precision}, {scale})"
+        elif data_type in {
+            PostgresDataType.TIMESTAMP_WITHOUT_TIME_ZONE,
+            PostgresDataType.TIMESTAMP_WITH_TIME_ZONE,
+        }:
+            fractional_digits = 6 if datetime_precision is None else datetime_precision
+            timezone = ", 'UTC'" if data_type == PostgresDataType.TIMESTAMP_WITH_TIME_ZONE else ""
+            target_type = f"{ClickHouseDataType.DATETIME64}({fractional_digits}{timezone})"
+        else:
+            target_type = POSTGRES.CLICKHOUSE_TYPES.get(data_type)
+        if target_type is None:
+            return None
+        return f"{ClickHouseDataType.NULLABLE}({target_type})" if nullable else target_type
 
     def __init__(
         self,
@@ -84,7 +140,8 @@ class POSTGRES(DatabaseService):
                             column_default,
                             character_maximum_length,
                             numeric_precision,
-                            numeric_scale
+                            numeric_scale,
+                            datetime_precision
                         FROM information_schema.columns
                         WHERE table_schema = %s
                         AND table_name = %s
@@ -97,6 +154,13 @@ class POSTGRES(DatabaseService):
                         {
                             "name": row[0],
                             "type": row[1],
+                            "consumer_type": self.to_consumer_type(
+                                row[1],
+                                nullable=row[2] == "YES",
+                                precision=row[5],
+                                scale=row[6],
+                                datetime_precision=row[7],
+                            ),
                             "nullable": row[2] == "YES",
                             "default": row[3],
                             "max_length": row[4],

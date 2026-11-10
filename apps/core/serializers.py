@@ -48,6 +48,14 @@ class DatabaseColumnsQuerySerializer(DatabaseConnectionQuerySerializer):
 class TableColumnSerializer(serializers.Serializer):
     name = serializers.CharField()
     type = serializers.CharField()
+    consumer_type = serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "Suggested ClickHouse type, including Nullable when applicable. "
+            "Null means manual mapping is required, including arrays, user-defined types, "
+            "and numeric types without supported precision/scale."
+        ),
+    )
     nullable = serializers.BooleanField()
     default = serializers.CharField(allow_null=True)
     max_length = serializers.IntegerField(allow_null=True)

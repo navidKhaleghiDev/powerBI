@@ -68,6 +68,19 @@ and `columns` with each column's name, type, nullable flag, default, maximum
 length, precision, and scale. Invalid table names or database failures return
 HTTP 400.
 
+Each column also includes `consumer_type`, a suggested ClickHouse destination type; `type`
+keeps the original PostgreSQL type. Common mappings include `smallint` → `Int16`,
+`integer` → `Int32`, `bigint` → `Int64`, `real` → `Float32`,
+`double precision` → `Float64`, `boolean` → `Bool`, text/JSON → `String`,
+`uuid` → `UUID`, and `date` → `Date32`. Timestamps use
+`DateTime64(datetime_precision)`, with UTC for timestamps with time zone.
+Constrained `numeric` columns use `Decimal(precision, scale)` when precision is
+1–76 and scale is between 0 and precision. Nullable columns use `Nullable(T)`.
+Arrays, user-defined types, unconstrained or unsupported numeric definitions,
+and other unmapped types return `consumer_type: null` for manual mapping.
+These suggestions do not transform CDC payloads or guarantee that all source
+values fit destination date/time ranges.
+
 `POST /api/database/tables/` accepts the same connection body and returns
 `success`, `database`, and `tables`. Each table contains `schema_name`,
 `table_name`, and a `columns` list with names, data types, lengths, and numeric

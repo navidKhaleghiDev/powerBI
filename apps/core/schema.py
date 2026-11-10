@@ -29,8 +29,35 @@ database_viewset_schema = extend_schema_view(
     columns=extend_schema(
         tags=["Database"],
         summary="List columns for a table",
-        description="Send connection credentials and a schema-qualified table name such as public.orders in the POST body.",
+        description=(
+            "Send connection credentials and a schema-qualified table name such as public.orders in the POST body. "
+            "Each column includes its PostgreSQL type and a suggested consumer_type for ClickHouse, for example integer to Int32. "
+            "Nullable columns use Nullable(T). Unsupported types return null for consumer_type and require manual mapping. "
+            "These are schema suggestions; CDC payload formats and destination date/time ranges must be considered separately."
+        ),
         request=DatabaseColumnsQuerySerializer,
+        examples=[
+            OpenApiExample(
+                "PostgreSQL columns with ClickHouse types",
+                response_only=True,
+                status_codes=["200"],
+                value={
+                    "success": True,
+                    "database": "bi",
+                    "table": "public.orders",
+                    "columns": [{
+                        "name": "id",
+                        "type": "integer",
+                        "consumer_type": "Int32",
+                        "nullable": False,
+                        "default": None,
+                        "max_length": None,
+                        "precision": 32,
+                        "scale": 0,
+                    }],
+                },
+            ),
+        ],
         responses={200: DatabaseColumnsResponseSerializer, 400: DatabaseColumnsResponseSerializer},
         filters=False,
     ),

@@ -196,14 +196,14 @@ consumer_viewset_schema = extend_schema_view(
         tags=['Consumer'],
         summary='Create mapped ClickHouse tables and Kafka consumers',
         description=(
-            'Staff users only. Send warehouse_name, table.include.list, topic.prefix, and tables with source_table, '
+            'Staff users only. Send the required topic.prefix and nonempty tables list with source_table, '
             'target_table, columns (source/target/type), and order_by using target column names. '
             'Topics are derived as prefix.source_table. Kafka columns use source names; raw and current '
-            'columns use target names. The database must already exist. CDC metadata is added automatically. '
+            'columns use target names. The destination database is configured by CONSUMER_DATABASE and must '
+            'already exist. CDC metadata is added automatically. '
             'Existing objects are preserved. DDL is not transactional; failures may leave partial objects.'
             ' Each target creates _raw, _current, _kafka, _current_mv, and _mv objects. '
             'order_by must identify the row using non-nullable target columns. '
-            'Source tables must match the comma-separated literal table.include.list exactly. '
             'Requires a JWT access token belonging to a staff user.'
             ' db_type selects the destination backend and defaults to clickhouse; '
             'other backends return HTTP 400 without provisioning objects.'
@@ -214,9 +214,7 @@ consumer_viewset_schema = extend_schema_view(
                 'Map orders to sales',
                 request_only=True,
                 value={
-                    'warehouse_name': 'financial_analytics',
                     'db_type': 'clickhouse',
-                    'table.include.list': 'public.orders',
                     'topic.prefix': 'bi',
                     'tables': [{
                         'source_table': 'public.orders',
@@ -230,7 +228,7 @@ consumer_viewset_schema = extend_schema_view(
                 },
             ),
             OpenApiExample(
-                'Consumer provisioned', response_only=True, status_codes=['200', '201'],
+                'Consumer provisioned', response_only=True, status_codes=['200'],
                 value={'success': True, 'database': 'financial_analytics', 'tables': ['sales']},
             ),
             OpenApiExample(
@@ -242,7 +240,7 @@ consumer_viewset_schema = extend_schema_view(
             ),
             OpenApiExample(
                 'Invalid table mapping', response_only=True, status_codes=['400'],
-                value={'tables': ['source_table entries must match table.include.list exactly.']},
+                value={'tables': [{'non_field_errors': ['order_by must contain unique target column names.']}]},
             ),
             OpenApiExample(
                 'Authentication required', response_only=True, status_codes=['401'],
@@ -251,7 +249,6 @@ consumer_viewset_schema = extend_schema_view(
         ],
         responses={
             200: OpenApiResponse(ConsumerResponseSerializer, description='Provisioned or already existing objects; tables lists completed target names.'),
-            201: OpenApiResponse(ConsumerResponseSerializer, description='Consumer created (reserved; provisioning currently returns 200).'),
             400: OpenApiResponse(
                 response={'oneOf': [
                     {'$ref': '#/components/schemas/ConsumerResponse'},
@@ -260,6 +257,7 @@ consumer_viewset_schema = extend_schema_view(
                 description='Validation errors or a sanitized provisioning failure. Partial objects may exist.',
             ),
             401: OpenApiResponse(connect_detail_response, description='JWT access token missing or invalid.'),
+            403: OpenApiResponse(connect_detail_response, description='Authenticated user is not a staff user.'),
         },
         filters=False,
     ),

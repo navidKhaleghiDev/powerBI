@@ -461,3 +461,11 @@ alone does not refresh container environment variables. Run Django checks with
 published host port; access it from containers or with `docker compose exec db psql`.
 Stopping the stack with `docker compose down` preserves named volumes. Removing
 volumes with `down -v` deletes application and CDC data.
+
+## Governed dashboard analytics
+
+The live React dashboard uses the new dataset mapping, publication, query,
+record-detail and dashboard persistence APIs under `/api/analytics/`.
+See [the analytics implementation guide](docs/analytics.md) for setup, approval,
+ClickHouse history capture, calendar semantics, endpoint contracts and limits.
+The legacy `/api/kpis/query/` remains available to administrators.

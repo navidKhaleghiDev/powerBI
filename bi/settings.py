@@ -183,3 +183,7 @@ CONSUMER_USER = os.getenv("CONSUMER_USER", "bi")
 CONSUMER_PASSWORD = os.getenv("CONSUMER_PASSWORD", "clickhouse")
 CLICKHOUSE_KAFKA_BROKERS = os.getenv("CLICKHOUSE_KAFKA_BROKERS", "kafka:29092")
 CONSUMER_DATABASE = os.getenv("CONSUMER_DATABASE", "financial_analytics")
+
+# Separate read-only ClickHouse credentials can be supplied for dashboard queries.
+ANALYTICS_USER = os.getenv('ANALYTICS_USER', CONSUMER_USER)
+ANALYTICS_PASSWORD = os.getenv('ANALYTICS_PASSWORD', CONSUMER_PASSWORD)

@@ -44,6 +44,7 @@ class ClickHouseConsumerService(ConsumerServiceInterface):
             'kafka_broker_list = %(brokers)s, kafka_topic_list = %(topic)s, '
             "kafka_security_protocol = 'plaintext', "
             "kafka_group_name = %(group)s, kafka_format = 'JSONEachRow', "
+            "date_time_input_format = 'best_effort', "
             'input_format_skip_unknown_fields = 1, kafka_num_consumers = 1',
             f'CREATE MATERIALIZED VIEW IF NOT EXISTS {ingest_mv} TO {raw} AS '
             f"SELECT {mapping}, if(__deleted = 'true' OR __op = 'd', 'true', 'false') AS __deleted, "

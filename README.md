@@ -30,7 +30,7 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-`init_databases` creates only the PostgreSQL entry in the `DatabaseCatalog` catalog with category `sql`.
+`init_databases` creates PostgreSQL (category `sql`) and ClickHouse (category `analytic`) entries in `DatabaseCatalog` for `GET /api/database-types/`. It is safe to run repeatedly; existing entries are preserved.
 It is safe to run again; existing entries are preserved.
 
 For testing from another device, run `uv run python manage.py runserver 0.0.0.0:8000`.
@@ -297,6 +297,8 @@ rejected. Different schemas may contain the same source table name when mapped
 to distinct target tables.
 Each Kafka source uses one consumer and a separate group per database, table,
 and generated topic.
+New Kafka source tables use `date_time_input_format = 'best_effort'` to accept
+Debezium ISO timestamps, including fractional seconds and the `Z` UTC suffix.
 
 Each column specifies `source`, `target`, and `type`. Kafka tables use source
 names. Raw and current tables use target names; the Kafka-to-raw view applies

@@ -117,3 +117,5 @@ media/
 /media/
 /staticfiles/
 /crm.sql
+.env.*
+!.env.example

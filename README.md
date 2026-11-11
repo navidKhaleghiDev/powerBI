@@ -198,16 +198,6 @@ The existing Debezium UI remains available on port 8080.
 
 Start ClickHouse with `docker compose up -d clickhouse`.
 
-A second independent instance is available with
-`docker compose up -d clickhouse-secondary`. Its HTTP endpoint is
-`http://localhost:8124` and its native port is `localhost:9003`. Containers on
-`bi-net` use `clickhouse-secondary:8123` (HTTP) or `clickhouse-secondary:9000`
-(native). It uses the same development credentials (`bi` / `clickhouse`) and
-database (`financial_analytics`), with its own `clickhouse_secondary_data` volume.
-The shared initialization SQL runs when its storage is first initialized;
-data is not copied or replicated from the first instance. To point the API at
-this instance from the host, set `CONSUMER_HOST=localhost` and
-`CONSUMER_PORT=8124` in `.env`, then restart Django.
 The `financial_analytics` database is created automatically and stored in the
 `clickhouse_data` volume. HTTP is available at `http://localhost:8123`, and the
 native protocol at `localhost:9002`. Other containers use `clickhouse:8123` or
@@ -364,3 +354,87 @@ contribute to aggregates.
 Empty results return empty `x` and `y` arrays. Invalid payloads return HTTP 400
 field errors. Driver failures return HTTP 400 with `success: false`, empty axes,
 and a generic `message`. Request and response examples appear in `/swagger/`.
+
+
+## Django Docker images
+
+Build the Gunicorn runtime image or the development image from the repository root:
+
+```bash
+docker build -t bi-django .
+docker build -f Dockerfile.dev -t bi-django-dev .
+```
+
+Both images install dependencies from `uv.lock` with Python 3.13. The development
+image includes development dependencies and runs Django with automatic reload.
+The runtime image excludes development dependencies and runs Gunicorn as a
+non-root user. The current Django settings still enable DEBUG and use a development
+secret key; configure deployment settings before using the runtime image publicly.
+Static files need collection and a separate static file server for deployment.
+
+Create `.env.docker` using `.env.example`. Use addresses reachable from the
+container: `localhost` refers to that container. With the existing Compose stack,
+use `POSTGRES_HOST=db`, `POSTGRES_PORT=5432`,
+`KAFKA_CONNECT_URL=http://connect:8083`, `DEBEZIUM_UI_URL=http://debezium-ui:8080`,
+`CONSUMER_HOST=clickhouse`, and `CONSUMER_PORT=8123`.
+Keep `CLICKHOUSE_KAFKA_BROKERS=kafka:29092`, since ClickHouse uses that address.
+Set `POSTGRES_DB=bi`, `POSTGRES_USER=bi`, and `POSTGRES_PASSWORD=bi`
+(or the matching `DJANGO_POSTGRES_*` values configured for the `db` service).
+
+Start the required Compose services, then run migrations explicitly:
+
+```bash
+docker compose up -d db postgres clickhouse connect debezium-ui
+docker run --rm --network bi_bi-net --env-file .env.docker bi-django python manage.py migrate
+docker run --rm --name bi-django --network bi_bi-net --env-file .env.docker -p 8000:8000 bi-django
+```
+
+`bi_bi-net` assumes the default Compose project name `bi`; substitute the actual
+network name when using a different Compose project name.
+
+For development, mount the source directory to reload changes without rebuilding:
+
+```bash
+docker run --rm --name bi-django-dev --network bi_bi-net --env-file .env.docker -p 8000:8000 --mount type=bind,source="$PWD",target=/app bi-django-dev
+```
+
+The container virtual environment lives in `/opt/venv`, so the source mount does
+not hide its dependencies. Rebuild after changing `pyproject.toml` or `uv.lock`.
+Allow UID 10001 to write to mounted media/static directories if those features
+are used. SQL dumps, ZIP archives, local environment files, and credentials are
+excluded from the build context. Migrations are never applied during image build.
+
+
+### Run Django with Compose
+
+The `web` service builds `Dockerfile.dev`, mounts the repository into `/app`,
+and runs Django on port 8000 with automatic reload. Dependencies stay in
+`/opt/venv`, outside the source mount. Media and static files use named volumes.
+
+There are two independent PostgreSQL services:
+
+| Service | Purpose | Internal address | Storage |
+| --- | --- | --- | --- |
+| `db` | Django authentication, application models and migrations | `db:5432` | `django_pg_data` |
+| `postgres` | CDC source database `crm-db` | `postgres:5432` (host port 5433) | `pg_data` |
+
+`db` initializes its database using `DJANGO_POSTGRES_DB`, `DJANGO_POSTGRES_USER`
+and `DJANGO_POSTGRES_PASSWORD` from `.env` (defaults: `bi` for all three).
+The web service receives these as standard `POSTGRES_*` environment variables.
+Changing initialization values after the volume is populated does not update
+existing database names, users or passwords. The CDC PostgreSQL service keeps
+its own credentials, initialization SQL and logical replication settings.
+
+Start the Django database and apply migrations, then launch the development app:
+
+```bash
+docker compose build web
+docker compose up -d db
+docker compose run --rm web python manage.py migrate
+docker compose up -d web
+```
+
+Open `http://localhost:8000/swagger/`. Django waits for `db` and ClickHouse health
+checks. Migrations remain an explicit command and apply only to `db`.
+Rebuild `web` after dependency changes. `Dockerfile` remains available for
+standalone Gunicorn builds; Compose defaults to development mode.

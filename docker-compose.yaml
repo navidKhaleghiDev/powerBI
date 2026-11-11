@@ -1,5 +1,60 @@
 
 services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${DJANGO_POSTGRES_DB:-bi}
+      POSTGRES_USER: ${DJANGO_POSTGRES_USER:-bi}
+      POSTGRES_PASSWORD: ${DJANGO_POSTGRES_PASSWORD:-bi}
+      KAFKA_CONNECT_URL: http://connect:8083
+      DEBEZIUM_UI_URL: http://debezium-ui:8080
+      CONSUMER_HOST: clickhouse
+      CONSUMER_PORT: "8123"
+      CONSUMER_USER: bi
+      CONSUMER_PASSWORD: clickhouse
+      CONSUMER_DATABASE: financial_analytics
+      CLICKHOUSE_KAFKA_BROKERS: kafka:29092
+    volumes:
+      - .:/app
+      - django_media:/app/media
+      - django_static:/app/staticfiles
+    depends_on:
+      db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      connect:
+        condition: service_started
+      debezium-ui:
+        condition: service_started
+    networks:
+      - bi-net
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DJANGO_POSTGRES_DB:-bi}
+      POSTGRES_USER: ${DJANGO_POSTGRES_USER:-bi}
+      POSTGRES_PASSWORD: ${DJANGO_POSTGRES_PASSWORD:-bi}
+    volumes:
+      - django_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - bi-net
+
   clickhouse:
     image: clickhouse/clickhouse-server:26.3.62.3-alpine
     container_name: cdc-clickhouse
@@ -16,31 +71,6 @@ services:
       - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     depends_on:
       - kafka
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - 'clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --query "SELECT 1" >/dev/null 2>&1'
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - bi-net
-
-  clickhouse-secondary:
-    image: clickhouse/clickhouse-server:26.3.62.3-alpine
-    container_name: cdc-clickhouse-secondary
-    restart: unless-stopped
-    environment:
-      CLICKHOUSE_DB: crm_analytics
-      CLICKHOUSE_USER: bi
-      CLICKHOUSE_PASSWORD: clickhouse
-    ports:
-      - "8124:8123"
-      - "9003:9000"
-    volumes:
-      - clickhouse_secondary_data:/var/lib/clickhouse
-      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test:
         - CMD-SHELL
@@ -72,11 +102,12 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    # healthcheck:
-    #   test: ["CMD-SHELL", "pg_isready -U postgres -d financial_db"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - bi-net
   pgadmin:
@@ -181,8 +212,10 @@ networks:
     driver: bridge
 
 volumes:
+  django_pg_data:
+  django_media:
+  django_static:
   clickhouse_data:
-  clickhouse_secondary_data:
   pg_data:
   pgadmin_data:
   kafka_data:

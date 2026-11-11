@@ -29,3 +29,11 @@ Update `README.md` when setup changes, using actual environment variable names a
 ## Test policy
 
 Do not create, add, or modify automated tests unless the user explicitly requests them. Do not run test suites unless explicitly requested. Existing tests must remain untouched unless their modification or removal is requested. Use syntax checks, Django system checks, schema validation, or configuration validation as appropriate instead.
+
+## Compose integration
+
+Compose has no Celery worker or Celery broker configuration. Kafka's presence
+does not establish Celery integration. Worker ORM operations must use the same
+application PostgreSQL `db` as `web`; `postgres` is the independent CDC source.
+Reuse application environment values and owning-app services when adding workers.
+See the [Docker skill](../docker-development/SKILL.md) for container changes.

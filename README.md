@@ -40,13 +40,15 @@ from all origins with `CORS_ALLOW_ALL_ORIGINS = True` using `django-cors-headers
 
 Open http://127.0.0.1:8000/ to view the development server, or http://127.0.0.1:8000/admin/ to sign in with your superuser account.
 
-The API routes are available under `/api/` and the main database metadata endpoints are registered through the API router.
+The API routes are available under `/api/`. Existing database, catalog, Connect
+and consumer routes are registered in `apps/core/urls.py`; KPI routes are in
+`apps/api/urls.py`. Both routers are included by `bi/urls.py`.
 
 Open http://127.0.0.1:8000/swagger/ for interactive Swagger documentation.
 The OpenAPI schema is available at `/schema/`. Database documentation covers
 testing connections using credentials supplied in a POST request body.
 
-`POST /api/database/databases/` tests a connection using a JSON body:
+`POST /api/database/connection-test/` tests a connection using a JSON body:
 
 ```json
 {
@@ -82,12 +84,12 @@ and other unmapped types return `consumer_type: null` for manual mapping.
 These suggestions do not transform CDC payloads or guarantee that all source
 values fit destination date/time ranges.
 
-`POST /api/database/tables/` accepts the same connection body and returns
-`success`, `database`, and `tables`. Each table contains `schema_name`,
-`table_name`, and a `columns` list with names, data types, lengths, and numeric
-precision/scale. Results include accessible user tables and views, exclude
-system schemas, and preserve column order. Failed metadata queries return
-HTTP 400 with `success: false`, an empty table list, and a generic message.
+`POST /api/database/tables/` accepts the connection body and returns
+`success`, `database`, and `tables` as schema-qualified strings such as
+`public.orders`. It lists user tables, excluding system schemas; it does not
+include views or nested column metadata. Driver failures return HTTP 400 with
+`success: false`, an empty list and a generic message. Database connection and
+metadata actions require an authenticated staff user's JWT.
 
 ## Environment variables
 
@@ -106,8 +108,11 @@ POSTGRES_PORT=5432
 ```text
 bi/
 ├── apps/
-│   ├── api/           # DRF API app, routers, viewsets, serializers, services
-│   └── core/          # Application models, views, admin, and migrations
+│   ├── api/           # API viewsets, KPI routes, serializers and schemas
+│   ├── core/          # Catalog, existing API routes and domain services
+│   ├── kpi/           # DataSet model and KPI query service
+│   ├── users/         # Authentication models
+│   └── worker/        # Task scaffold; Celery is not configured
 ├── bi/
 │   ├── settings.py    # Django configuration
 │   ├── urls.py        # Root URL configuration
@@ -134,7 +139,7 @@ uv run python manage.py makemigrations
 uv run python manage.py migrate
 ```
 
-Run tests:
+Run tests only when explicitly requested:
 
 ```bash
 uv run python manage.py test
@@ -164,7 +169,7 @@ for pagination. Ordering supports `db_type`, `category`, and `id`.
 ### PostgreSQL test source
 
 Start the test source with `docker compose up -d postgres`.
-It creates `financial_db` with local test credentials `postgres` / `postgres`
+On first initialization it creates `crm-db` with local test credentials `postgres` / `postgres`
 and enables logical replication with four WAL senders and replication slots.
 Connect from the host at `localhost:5433`; Kafka Connect uses `postgres:5432`
 on the shared `bi-net` network.
@@ -183,7 +188,7 @@ The web port is bound to localhost, and pgAdmin settings persist in the
 change an existing account's password through pgAdmin.
 
 Use **Register > Server** to add the Compose PostgreSQL instance with host
-`postgres`, port `5432`, maintenance database `financial_db`, and the local test
+`postgres`, port `5432`, maintenance database `crm-db`, and the local test
 credentials documented above. Give the server any display name.
 
 ### Kafka management UI
@@ -431,6 +436,8 @@ Start the Django database and apply migrations, then launch the development app:
 docker compose build web
 docker compose up -d db
 docker compose run --rm web python manage.py migrate
+docker compose run --rm web python manage.py init_databases
+docker compose run --rm web python manage.py createsuperuser
 docker compose up -d web
 ```
 
@@ -438,3 +445,17 @@ Open `http://localhost:8000/swagger/`. Django waits for `db` and ClickHouse heal
 checks. Migrations remain an explicit command and apply only to `db`.
 Rebuild `web` after dependency changes. `Dockerfile` remains available for
 standalone Gunicorn builds; Compose defaults to development mode.
+
+
+Compose configuration can be checked without starting services:
+
+```bash
+docker compose config --quiet
+```
+
+Changing Compose environment settings requires recreating `web`; source reload
+alone does not refresh container environment variables. Run Django checks with
+`docker compose run --rm web python manage.py check`. The `db` service has no
+published host port; access it from containers or with `docker compose exec db psql`.
+Stopping the stack with `docker compose down` preserves named volumes. Removing
+volumes with `down -v` deletes application and CDC data.

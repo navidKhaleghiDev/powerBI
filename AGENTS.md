@@ -9,13 +9,13 @@
 - `apps/api/` is the dedicated DRF API app. Keep API routes, viewsets, serializers, and schema annotations under this package.
 - Define services, service interfaces, factories, SQL, and connection logic in the app that owns the behavior, under `apps/<owning_app>/service/`. For example, KPI services belong in `apps/kpi/service/`, while core database and consumer services belong in `apps/core/service/`. API viewsets import and call these services using canonical `apps.<owning_app>` imports; do not put domain services in `apps/api/service/`. This rule supersedes older service-location guidance in local skills.
 - Correct API structure:
-  - `apps/api/urls.py` for router registration
+  - `apps/api/urls.py` for KPI routing; `apps/core/urls.py` currently registers database, catalog, Connect and consumer routes
   - `apps/api/viewset/database_viewset.py` for DRF viewset logic
-  - `apps/api/schema.py` for drf-spectacular schema decorators
+  - `apps/api/schema.py` for KPI/data-type schemas; `apps/core/schema.py` currently contains database, catalog, Connect and consumer schemas
   - `apps/core/service/interface.py` for the abstract service contracts
   - `apps/core/service/database_service.py` for configured database backend services and their factory
   - `apps/kpi/service/kpi_service.py` for KPI query construction and ClickHouse execution
-  - `apps/api/serializers.py` for API payload serialization
+  - `apps/api/serializers.py` for KPI/consumer payloads; database/Connect serializers currently live in `apps/core/serializers.py`
 - `apps/core/` remains the core app for model and non-API project logic. Its registered configuration is `apps.core.apps.CoreConfig`.
 - `apps/worker/` is the dedicated app for Celery background tasks, registered as `apps.worker.apps.WorkerConfig`. Keep task entry points in `apps/worker/tasks.py` and project-wide Celery setup in `bi/`. Use canonical `apps.worker` imports.
 - Use `apps.core` consistently in imports when touching the core app, and use `apps.api` when touching API code. Although settings add `apps/` to `sys.path`, importing the same application under multiple names can create duplicate module identities.
@@ -46,15 +46,15 @@ Inspect `.agents/skills/` for other relevant skills as the repository evolves. O
 
 ## Database API flow
 
-The API is stateless: it does not save connection records or passwords. `DataBase` was removed by `core.0007`; retain the historical migrations, including the former encrypted-password migration. `apps/core/models.py` currently has no models. The unmanaged `apps/api/models.py` placeholder is not required by the active `GenericViewSet`.
+The API is stateless: it does not save connection records or passwords. `DataBase` was removed by `core.0007`; retain the historical migrations, including the former encrypted-password migration. `apps/core/models.py` contains the persistent `DatabaseCatalog`; `apps/kpi/models.py` contains `DataSet`. Connection credentials remain stateless. The unmanaged `apps/api/models.py` placeholder is not required by the active `GenericViewSet`.
 
-- `apps/api/urls.py` registers `DatabaseViewSet` with `DefaultRouter`, prefix `database`, and explicit basename `database`. `bi/urls.py` includes `/api/` and owns `/schema/`, `/swagger/`, and `/admin/`.
-- `DatabaseViewSet` uses `GenericViewSet`, allows POST and OPTIONS, and has no model CRUD. Keep routing `@action` decorators on methods and apply `@database_viewset_schema` at class level. Keep `extend_schema_view`/`extend_schema` definitions in `apps/api/schema.py`.
+- `apps/core/urls.py` registers `DatabaseViewSet` with `DefaultRouter`, prefix `database`, and explicit basename `database`. `bi/urls.py` includes `/api/` and owns `/schema/`, `/swagger/`, and `/admin/`.
+- `DatabaseViewSet` uses `GenericViewSet`, allows POST and OPTIONS, and has no model CRUD. Keep routing `@action` decorators on methods and apply `@database_viewset_schema` at class level. The current database annotations are in `apps/core/schema.py`; KPI annotations are in `apps/api/schema.py`.
 - All actions validate `request.data` using a serializer and `is_valid(raise_exception=True)`, select a configured service through the factory, call a service method, and return HTTP 200 when `success` is true or 400 otherwise.
 
 | POST route | Request serializer | Service method | Success result |
 | --- | --- | --- | --- |
-| `/api/database/databases/` | `DatabaseConnectionQuerySerializer` | `connection_test()` | `success`, `message` |
+| `/api/database/connection-test/` | `DatabaseConnectionQuerySerializer` | `connection_test()` | `success`, `message` |
 | `/api/database/tables/` | `DatabaseConnectionQuerySerializer` | `get_tables()` | `success`, `database`, `tables` as `schema.table` strings |
 | `/api/database/columns/` | `DatabaseColumnsQuerySerializer` | `get_columns(table)` | `success`, `database`, `table`, `columns` |
 
@@ -64,10 +64,21 @@ The API is stateless: it does not save connection records or passwords. `DataBas
 - `DatabaseServiceFactory.get_service(db_type, **connection_kwargs)` returns a new configured backend instance, or `None` when no implementation exists. Views handle `None` with HTTP 400 and an `error` message. Its current return annotation omits `None`; preserve runtime behavior when documenting or updating typing.
 - `DatabaseService` is an ABC declaring instance methods `connection_test`, `get_tables`, and `get_columns`. `POSTGRES` implements it with constructor-supplied settings in `self.config`, translating `database` to `dbname` and `username` to `user`. Keep SQL in the service, validation in serializers, and HTTP responses in the viewset.
 - Services use Psycopg 3, a 5-second connection timeout, and context-managed connections/cursors. `connection_test` executes `SELECT 1`. `get_tables` queries `pg_catalog.pg_tables`, excludes `pg_catalog` and `information_schema`, and sorts schema/table names; it does not return views or nested columns.
-- `get_columns` splits the qualified name at the first dot and uses SQL parameters for schema/table filters on `information_schema.columns`, ordered by ordinal position. Columns contain `name`, `type`, `nullable`, `default`, `max_length`, `precision`, and `scale`. No visible matches returns a successful empty list.
+- `get_columns` splits the qualified name at the first dot and uses SQL parameters for schema/table filters on `information_schema.columns`, ordered by ordinal position. Columns contain `name`, `type`, `consumer_type`, `nullable`, `default`, `max_length`, `precision`, and `scale`. No visible matches returns a successful empty list.
 - Driver failures produce `success: false`, generic messages, and empty metadata lists. Invalid requests produce DRF field errors; unsupported implementations produce an `error` object. These are distinct response shapes.
-- Known schema drift: `DatabaseTablesResponseSerializer` and the table action description still describe nested columns/views, while runtime returns table-name strings. The interface's table docstring is also stale. Schema validation alone does not prove response accuracy; verify documented shapes against service results when touching these areas.
-- Never log or return passwords, connection configuration, or raw driver errors. Keep credentials in POST bodies. Target credentials come from requests, independently of Django's environment-configured database. Preserve appropriate authentication, permissions, and session CSRF protection; no explicit permission policy is currently configured on this viewset.
+- Known schema drift: `DatabaseTablesResponseSerializer` and the table action description still describe nested columns/views, while runtime returns table-name strings. Schema validation alone does not prove response accuracy; verify documented shapes against service results when touching these areas.
+- Never log or return passwords, connection configuration, or raw driver errors. Keep credentials in POST bodies. Target credentials come from requests, independently of Django's environment-configured database. Preserve appropriate authentication, permissions, and session CSRF protection; `DatabaseViewSet` explicitly requires `IsAuthenticated` and `IsAdminUser`.
+
+## Docker and database separation
+
+- Compose `web` builds `Dockerfile.dev`, runs Django's reload server on port 8000, and mounts the source at `/app`. `Dockerfile` is the separate Gunicorn runtime build; current settings still target development.
+- `db` is Django's PostgreSQL service (`db:5432`, volume `django_pg_data`). `DJANGO_POSTGRES_DB`, `DJANGO_POSTGRES_USER`, and `DJANGO_POSTGRES_PASSWORD` are mapped by Compose to Django's standard `POSTGRES_*` variables. Defaults are development values `bi`.
+- `postgres` is the independent CDC source (`postgres:5432`, host port 5433, database `crm-db`, volume `pg_data`). Do not point Django migrations at this service or share its data volume with `db`.
+- PostgreSQL initialization variables and `postgres/init.sql` only initialize empty storage. Preserve existing volumes and migration history when changing configuration.
+- Container addresses are service names: `connect:8083`, `debezium-ui:8080`, and `clickhouse:8123`. ClickHouse resolves `CLICKHOUSE_KAFKA_BROKERS=kafka:29092`; host `localhost` addresses are not interchangeable with these.
+- Dependencies are locked with uv; container virtual environments live at `/opt/venv`, outside the source mount. Rebuild after dependency changes. Media and static files have separate named volumes.
+- Keep `.dockerignore` exclusions for local environment files, dumps, archives and credentials. Run migrations explicitly, never during image builds. A Gunicorn image alone does not make the development settings production-ready.
+- For Docker work, follow [the Docker development skill](.agents/skills/docker-development/SKILL.md). Validate with `docker compose config --quiet`; build affected images and run container checks when implementation changes warrant it. Do not remove data volumes as routine cleanup.
 
 ## Python conventions
 

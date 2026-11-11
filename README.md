@@ -197,6 +197,17 @@ The existing Debezium UI remains available on port 8080.
 ### ClickHouse
 
 Start ClickHouse with `docker compose up -d clickhouse`.
+
+A second independent instance is available with
+`docker compose up -d clickhouse-secondary`. Its HTTP endpoint is
+`http://localhost:8124` and its native port is `localhost:9003`. Containers on
+`bi-net` use `clickhouse-secondary:8123` (HTTP) or `clickhouse-secondary:9000`
+(native). It uses the same development credentials (`bi` / `clickhouse`) and
+database (`financial_analytics`), with its own `clickhouse_secondary_data` volume.
+The shared initialization SQL runs when its storage is first initialized;
+data is not copied or replicated from the first instance. To point the API at
+this instance from the host, set `CONSUMER_HOST=localhost` and
+`CONSUMER_PORT=8124` in `.env`, then restart Django.
 The `financial_analytics` database is created automatically and stored in the
 `clickhouse_data` volume. HTTP is available at `http://localhost:8123`, and the
 native protocol at `localhost:9002`. Other containers use `clickhouse:8123` or
@@ -320,3 +331,36 @@ Connector configuration uses the Debezium UI proxy for cluster `1`:
 `DEBEZIUM_UI_URL/api/connectors/1/{source}/config`.
 Set `DEBEZIUM_UI_URL=http://localhost:8080` in `.env`, or replace `localhost`
 with the Debezium UI server IP when it runs on another machine.
+
+## KPI chart queries
+
+Authenticated admins can submit query fields to `POST /api/kpis/query/`.
+This is the only KPI endpoint; it does not read or save DataSet records.
+It connects using the existing `CONSUMER_*` ClickHouse settings.
+
+```json
+{"table_name": "orders", "dimension": "country", "measure": "amount", "aggregation": "sum", "limit": 100}
+```
+
+Example response:
+
+```json
+{"success": true, "x": ["Germany", "US"], "y": [350, 1200]}
+```
+
+`x` contains dimensions and `y` contains corresponding aggregate values at the
+same indexes, ordered by dimension. The default limit is 100 groups, maximum
+1,000. ClickHouse JSON encoding may represent large integers as strings.
+Supported aggregations are `sum`, `avg`, `min`, `max`, `count`, and `uniqExact`.
+Only `count` allows an empty or omitted measure.
+
+Optional joins use `join_table_name`, `join_type` (`INNER` or `LEFT`, default
+`LEFT`), `join_left_column` and `join_right_column`. The table and both columns
+must be provided together. Use `source.column` for the main table and
+`joined.column` for the joined table; unqualified columns refer to `source`.
+Table names can be qualified as `database.table`. Matching join rows each
+contribute to aggregates.
+
+Empty results return empty `x` and `y` arrays. Invalid payloads return HTTP 400
+field errors. Driver failures return HTTP 400 with `success: false`, empty axes,
+and a generic `message`. Request and response examples appear in `/swagger/`.

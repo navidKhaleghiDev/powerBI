@@ -6,13 +6,15 @@
 - Run commands from the repository root, alongside `manage.py`.
 - `utils/` contains shared helper functions and utility modules/packages, including reusable pagination classes in `utils/pagination.py`. Import these through the canonical `utils` package.
 - `bi/settings.py` contains settings, `bi/urls.py` contains root routes, and `bi/asgi.py` and `bi/wsgi.py` expose application entry points.
-- `apps/api/` is the dedicated DRF API app. Keep API routes, viewsets, serializers, and service logic under this package instead of the core app.
+- `apps/api/` is the dedicated DRF API app. Keep API routes, viewsets, serializers, and schema annotations under this package.
+- Define services, service interfaces, factories, SQL, and connection logic in the app that owns the behavior, under `apps/<owning_app>/service/`. For example, KPI services belong in `apps/kpi/service/`, while core database and consumer services belong in `apps/core/service/`. API viewsets import and call these services using canonical `apps.<owning_app>` imports; do not put domain services in `apps/api/service/`. This rule supersedes older service-location guidance in local skills.
 - Correct API structure:
   - `apps/api/urls.py` for router registration
   - `apps/api/viewset/database_viewset.py` for DRF viewset logic
   - `apps/api/schema.py` for drf-spectacular schema decorators
-  - `apps/api/service/database_interface.py` for the abstract service contract
-  - `apps/api/service/database_service.py` for configured backend services and their factory
+  - `apps/core/service/interface.py` for the abstract service contracts
+  - `apps/core/service/database_service.py` for configured database backend services and their factory
+  - `apps/kpi/service/kpi_service.py` for KPI query construction and ClickHouse execution
   - `apps/api/serializers.py` for API payload serialization
 - `apps/core/` remains the core app for model and non-API project logic. Its registered configuration is `apps.core.apps.CoreConfig`.
 - `apps/worker/` is the dedicated app for Celery background tasks, registered as `apps.worker.apps.WorkerConfig`. Keep task entry points in `apps/worker/tasks.py` and project-wide Celery setup in `bi/`. Use canonical `apps.worker` imports.

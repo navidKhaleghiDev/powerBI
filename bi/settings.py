@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'apps.api.apps.ApiConfig',
     'apps.users.apps.UsersConfig',
     'apps.worker.apps.WorkerConfig',
+    'apps.kpi.apps.KpiConfig',
 ]
 
 REST_FRAMEWORK = {

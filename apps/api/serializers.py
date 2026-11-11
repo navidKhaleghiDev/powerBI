@@ -1,11 +1,48 @@
 from rest_framework import serializers
 
+from apps.kpi.choices import Aggregation, JoinType
+
 from apps.core.choices import DatabaseType
 
 from utils.consumers import (
     RESERVED_COLUMNS,
     # validate_column_type,
 )
+
+class KPIQuerySerializer(serializers.Serializer):
+    table_name = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?\Z', max_length=255)
+    dimension = serializers.RegexField(r'\A(?:(?:source|joined)\.)?[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100)
+    measure = serializers.RegexField(r'\A(?:(?:source|joined)\.)?[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100, allow_blank=True, default='')
+    aggregation = serializers.ChoiceField(choices=Aggregation.choices)
+    join_table_name = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?\Z', max_length=255, allow_blank=True, allow_null=True, required=False)
+    join_type = serializers.ChoiceField(choices=JoinType.choices, allow_null=True, allow_blank=True, required=False)
+    join_left_column = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100, allow_blank=True, allow_null=True, required=False)
+    join_right_column = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100, allow_blank=True, allow_null=True, required=False)
+    limit = serializers.IntegerField(default=100, min_value=1, max_value=1000)
+
+    def validate(self, attrs):
+        errors = {}
+        join_fields = ('join_table_name', 'join_left_column', 'join_right_column')
+        if any(attrs.get(field) for field in join_fields) or attrs.get('join_type'):
+            for field in join_fields:
+                if not attrs.get(field):
+                    errors[field] = 'Specify the joined table and both join columns.'
+        for field in ('dimension', 'measure'):
+            if attrs[field].startswith('joined.') and not attrs.get('join_table_name'):
+                errors[field] = 'The joined alias requires a joined table.'
+        if not attrs['measure'] and attrs['aggregation'] != Aggregation.COUNT:
+            errors['measure'] = 'A measure is required for this aggregation.'
+        if errors:
+            raise serializers.ValidationError(errors)
+        attrs['join_type'] = attrs.get('join_type') or JoinType.LEFT
+        return attrs
+
+
+class KPIResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    x = serializers.ListField(child=serializers.JSONField())
+    y = serializers.ListField(child=serializers.JSONField())
+    message = serializers.CharField(required=False)
 
 
 class DataTypeQuerySerializer(serializers.Serializer):

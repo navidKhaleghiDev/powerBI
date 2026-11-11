@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/login/', token_view_schema(TokenObtainPairView.as_view()), name='token_obtain_pair'),
     path('api/token/refresh/', token_view_schema(TokenRefreshView.as_view()), name='token_refresh'),
     path('api/', include('apps.core.urls')),
+    path('api/', include('apps.api.urls')),
 ]
 
 if settings.DEBUG:

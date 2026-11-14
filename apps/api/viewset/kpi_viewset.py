@@ -1,5 +1,3 @@
-from django.shortcuts import get_object_or_404
-
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -7,8 +5,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
 from apps.api.schema import kpi_viewset_schema
-from apps.api.serializers import KPIDataSetQuerySerializer, KPIQuerySerializer
-from apps.kpi.models import DataSet
+from apps.api.serializers import KPIQuerySerializer
 from apps.kpi.service.kpi_service import KPIService, KPIUnavailable
 
 
@@ -16,7 +13,6 @@ from apps.kpi.service.kpi_service import KPIService, KPIUnavailable
 class KPIViewSet(viewsets.GenericViewSet):
     serializer_class = KPIQuerySerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
-    renderer_classes = [JSONRenderer]
     http_method_names = ['get', 'post', 'options']
 
     @action(detail=False, methods=['get'], url_path='available-tables')

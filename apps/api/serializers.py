@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.kpi.choices import Aggregation, JoinType
+from apps.kpi.choices import Aggregation, FilterOperator, JoinType
 
 from apps.core.choices import DatabaseType
 
@@ -13,10 +13,7 @@ class KPIFilterSerializer(serializers.Serializer):
     column = serializers.RegexField(
         r'\A(?:(?:source|joined)\.)?[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100,
     )
-    operator = serializers.ChoiceField(choices=[
-        'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like',
-        'is_null', 'is_not_null',
-    ])
+    operator = serializers.ChoiceField(choices=FilterOperator.choices)
     value = serializers.JSONField(required=False)
 
     def validate(self, attrs):
@@ -64,8 +61,8 @@ class KPIQuerySerializer(serializers.Serializer):
             raise serializers.ValidationError({'filters': 'Joined columns require join_table_name.'})
         return attrs
 
-class KPIDataSetQuerySerializer(serializers.Serializer):
-    dataset_id = serializers.IntegerField(min_value=1)
+class KPIDashboardQuerySerializer(serializers.Serializer):
+    dashboard_id = serializers.IntegerField(min_value=1)
     limit = serializers.IntegerField(default=100, min_value=1, max_value=1000)
 
 

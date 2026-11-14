@@ -9,6 +9,33 @@ from utils.consumers import (
     # validate_column_type,
 )
 
+class KPIFilterSerializer(serializers.Serializer):
+    column = serializers.RegexField(
+        r'\A(?:(?:source|joined)\.)?[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100,
+    )
+    operator = serializers.ChoiceField(choices=[
+        'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like',
+        'is_null', 'is_not_null',
+    ])
+    value = serializers.JSONField(required=False)
+
+    def validate(self, attrs):
+        operator = attrs['operator']
+        if operator in ('is_null', 'is_not_null'):
+            if 'value' in attrs:
+                raise serializers.ValidationError({'value': 'Omit value for null checks.'})
+            return attrs
+        value = attrs.get('value')
+        values = value if operator in ('in', 'not_in') else [value]
+        if not isinstance(values, list) or not values or len(values) > 1000:
+            raise serializers.ValidationError({'value': 'Provide a nonempty list of at most 1000 values.'})
+        if any(type(item) not in (str, int, float, bool) for item in values):
+            raise serializers.ValidationError({'value': 'Use strings, numbers or booleans; use null operators for NULL.'})
+        if operator == 'like' and not isinstance(value, str):
+            raise serializers.ValidationError({'value': 'LIKE requires a string pattern.'})
+        return attrs
+
+
 class KPIQuerySerializer(serializers.Serializer):
     table_name = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?\Z', max_length=255)
     dimension = serializers.RegexField(r'\A(?:(?:source|joined)\.)?[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100)
@@ -19,23 +46,44 @@ class KPIQuerySerializer(serializers.Serializer):
     join_left_column = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100, allow_blank=True, allow_null=True, required=False)
     join_right_column = serializers.RegexField(r'\A[A-Za-z_][A-Za-z0-9_]*\Z', max_length=100, allow_blank=True, allow_null=True, required=False)
     limit = serializers.IntegerField(default=100, min_value=1, max_value=1000)
+    filters = KPIFilterSerializer(many=True, required=False, max_length=50)
 
     def validate(self, attrs):
-        errors = {}
-        join_fields = ('join_table_name', 'join_left_column', 'join_right_column')
-        if any(attrs.get(field) for field in join_fields) or attrs.get('join_type'):
-            for field in join_fields:
-                if not attrs.get(field):
-                    errors[field] = 'Specify the joined table and both join columns.'
-        for field in ('dimension', 'measure'):
-            if attrs[field].startswith('joined.') and not attrs.get('join_table_name'):
-                errors[field] = 'The joined alias requires a joined table.'
-        if not attrs['measure'] and attrs['aggregation'] != Aggregation.COUNT:
-            errors['measure'] = 'A measure is required for this aggregation.'
-        if errors:
-            raise serializers.ValidationError(errors)
-        attrs['join_type'] = attrs.get('join_type') or JoinType.LEFT
+        required_fields = ("join_type", "join_left_column", "join_right_column")
+
+        if attrs.get("join_table_name") and any(
+            not attrs.get(field) for field in required_fields
+        ):
+            raise serializers.ValidationError(
+                "Join fields are required when join_table_name is provided."
+            )
+
+        if not attrs.get('join_table_name') and any(
+            item['column'].startswith('joined.') for item in attrs.get('filters', [])
+        ):
+            raise serializers.ValidationError({'filters': 'Joined columns require join_table_name.'})
         return attrs
+
+class KPIDataSetQuerySerializer(serializers.Serializer):
+    dataset_id = serializers.IntegerField(min_value=1)
+    limit = serializers.IntegerField(default=100, min_value=1, max_value=1000)
+
+
+class KPITableColumnSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    type = serializers.CharField()
+
+
+class KPIAvailableTableSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    engine = serializers.CharField()
+    columns = KPITableColumnSerializer(many=True)
+
+
+class KPIAvailableTablesResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    tables = KPIAvailableTableSerializer(many=True)
+    message = serializers.CharField(required=False)
 
 
 class KPIResponseSerializer(serializers.Serializer):

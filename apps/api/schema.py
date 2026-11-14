@@ -1,10 +1,14 @@
 """OpenAPI annotations for API viewsets."""
 
-from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 
 from apps.api.serializers import DataTypeQuerySerializer, DataTypeResponseSerializer
 from apps.api.serializers import KPIQuerySerializer, KPIResponseSerializer
 from apps.api.serializers import KPIAvailableTablesResponseSerializer
+from apps.api.serializers import (
+    DashboardCreateSerializer, DashboardResponseSerializer, DashboardQueryFailureSerializer,
+    KPIChartQuerySerializer,
+)
 
 
 KPI_JOIN_EXAMPLE = {
@@ -20,6 +24,21 @@ KPI_JOIN_EXAMPLE = {
 }
 
 kpi_viewset_schema = extend_schema_view(
+    chart_query=extend_schema(
+        tags=['KPIs'],
+        summary='Execute a saved chart with its filters',
+        description=(
+            'Loads a chart belonging to the authenticated admin, validates its saved '
+            'query and filters, and returns chart axes. Optional limit overrides the '
+            'saved limit for this request only. Unknown or other-owner charts return 404.'
+        ),
+        request=KPIChartQuerySerializer,
+        responses={200: KPIResponseSerializer, 400: {'description': 'Invalid configuration or query failure.'},
+                   404: {'description': 'Chart not found.'}},
+        examples=[OpenApiExample('Saved chart', request_only=True, value={'chart_id': 1}),
+                  OpenApiExample('Override group limit', request_only=True, value={'chart_id': 1, 'limit': 50})],
+        filters=False,
+    ),
     available_tables=extend_schema(
         tags=['KPIs'],
         summary='List available KPI tables and columns',
@@ -143,6 +162,71 @@ kpi_viewset_schema = extend_schema_view(
                 'success': True, 'x': ['Germany', 'US'], 'y': [350, 1200],
             }),
         ],
+        filters=False,
+    ),
+)
+
+
+DASHBOARD_CREATE_EXAMPLE = {
+    'title': 'Invoice analytics',
+    'description': 'Item totals by invoice',
+    'charts': [{
+        'title': 'Amounts by invoice', 'chart_type': 'bar',
+        'x_label': 'Invoice', 'y_label': 'Total amount', 'position': 0,
+        'table_name': 'factor_item_current', 'dimension': 'invoice_id',
+        'measure': 'amount_numeric', 'aggregation': 'sum',
+        'filters': [
+            {'column': 'quantity', 'operator': 'gte', 'value': 1},
+            {'column': 'amount_numeric', 'operator': 'gt', 'value': 100},
+        ],
+        'limit': 100,
+    }],
+}
+
+kpi_dashboard_schema = extend_schema_view(
+    create_dashboard=extend_schema(
+        tags=['Dashboards'], summary='Create a dashboard with charts and filters',
+        description=(
+            'Requires an authenticated admin. Saves a dashboard, 1–50 charts, and each '
+            'chart’s filter rows atomically. Owner is the authenticated user. Each chart '
+            'uses the same query fields and validation as POST /api/kpis/query/. '
+            'Executes every submitted chart query in ClickHouse before saving any objects. '
+            'If any query fails, returns HTTP 400 with a zero-based chart_index and saves '
+            'nothing. Empty query results count as success. After successful execution, '
+            'saves all objects in one database transaction. Use /api/kpis/chart-query/ with a returned '
+            'chart ID to execute it. Chart types: bar, line, pie, table, number. '
+            'Positions control chart ordering; filters retain request order. '
+            'Axis labels are optional. Null-check filters omit value in requests.'
+        ),
+        request=DashboardCreateSerializer,
+        responses={201: DashboardResponseSerializer, 400: OpenApiResponse(
+            response=DashboardQueryFailureSerializer,
+            description=(
+                "ClickHouse failure with a zero-based chart_index; nothing is saved. "
+                "Invalid input instead returns DRF field validation errors."
+            ),
+        )},
+        examples=[
+            OpenApiExample('Dashboard with filtered chart', request_only=True, value=DASHBOARD_CREATE_EXAMPLE),
+            OpenApiExample('Dashboard with join chart', request_only=True, value={
+                'title': 'Invoice currencies',
+                'charts': [{**KPI_JOIN_EXAMPLE, 'title': 'Amounts by currency',
+                            'chart_type': 'bar', 'filters': [
+                                {'column': 'joined.quantity', 'operator': 'gte', 'value': 1},
+                            ]}],
+            }),
+        ],
+    ),
+    dashboards=extend_schema(
+        tags=['Dashboards'], summary='List your dashboards with charts and filters',
+        description='Requires an authenticated admin. Returns only dashboards owned by the current user.',
+        responses={200: DashboardResponseSerializer(many=True)}, filters=False,
+    ),
+    dashboard=extend_schema(
+        tags=['Dashboards'], summary='Retrieve your dashboard with charts and filters',
+        parameters=[OpenApiParameter('dashboard_id', int, OpenApiParameter.PATH)],
+        description='Requires an authenticated admin. Unknown or other-owner dashboards return 404.',
+        responses={200: DashboardResponseSerializer, 404: {'description': 'Dashboard not found.'}},
         filters=False,
     ),
 )

@@ -3,15 +3,49 @@ import json
 import clickhouse_connect
 from clickhouse_connect.driver.exceptions import Error
 from django.conf import settings
+from django.db import transaction
+
+from apps.kpi.models import Dashboard, KPIChart, KPIChartFilter
 
 from utils.consumers import quote_identifier
-
-
-class KPIUnavailable(RuntimeError):
-    """ClickHouse could not provide KPI source metadata."""
+from utils.exceptions import ChartQueryFailed, KPIUnavailable
 
 
 class KPIService:
+    def create_dashboard(self, owner, data):
+        for index, chart in enumerate(data['charts']):
+            if not self.execute(chart, chart['limit'])['success']:
+                raise ChartQueryFailed(index)
+        with transaction.atomic():
+            dashboard = Dashboard.objects.create(
+                owner=owner, title=data['title'], description=data.get('description', ''),
+            )
+            for chart_data in data['charts']:
+                chart_data = dict(chart_data)
+                filters = chart_data.pop('filters', [])
+                chart = KPIChart.objects.create(dashboard=dashboard, **chart_data)
+                KPIChartFilter.objects.bulk_create([
+                    KPIChartFilter(chart=chart, position=index, **item)
+                    for index, item in enumerate(filters)
+                ])
+        return dashboard
+
+    @staticmethod
+    def chart_config(chart):
+        config = {
+            field: getattr(chart, field) for field in (
+                'table_name', 'dimension', 'measure', 'aggregation', 'join_table_name',
+                'join_type', 'join_left_column', 'join_right_column', 'limit',
+            )
+        }
+        config['filters'] = []
+        for item in chart.filters.all():
+            condition = {'column': item.column, 'operator': item.operator}
+            if item.operator not in ('is_null', 'is_not_null'):
+                condition['value'] = item.value
+            config['filters'].append(condition)
+        return config
+
     @staticmethod
     def client():
         return clickhouse_connect.get_client(

@@ -461,3 +461,45 @@ alone does not refresh container environment variables. Run Django checks with
 published host port; access it from containers or with `docker compose exec db psql`.
 Stopping the stack with `docker compose down` preserves named volumes. Removing
 volumes with `down -v` deletes application and CDC data.
+
+### Dashboard and chart API
+
+Apply KPI migrations with `uv run python manage.py migrate kpi` before using
+saved dashboards. All endpoints below require an authenticated admin; saved
+dashboards and charts are accessible only to their owner.
+
+- `POST /api/kpis/query/`: preview a query with optional filters without saving.
+- `POST /api/kpis/create-dashboard/`: save a dashboard with a nonempty `charts` array.
+- `GET /api/kpis/dashboards/`: list your dashboards, including charts and filters.
+- `GET /api/kpis/dashboards/{id}/`: retrieve one of your dashboards.
+- `POST /api/kpis/chart-query/`: execute a saved chart using `{"chart_id": 1}`;
+  an optional `limit` overrides its stored limit for this request only.
+
+Example dashboard creation body:
+
+```json
+{
+  "title": "Invoice analytics",
+  "charts": [{
+    "title": "Amounts by invoice",
+    "chart_type": "bar",
+    "x_label": "Invoice",
+    "y_label": "Total amount",
+    "table_name": "factor_item_current",
+    "dimension": "invoice_id",
+    "measure": "amount_numeric",
+    "aggregation": "sum",
+    "filters": [
+      {"column": "quantity", "operator": "gte", "value": 1},
+      {"column": "amount_numeric", "operator": "gt", "value": 100}
+    ],
+    "limit": 100
+  }]
+}
+```
+
+Creation executes every chart query in ClickHouse before saving any objects.
+If a query fails, HTTP 400 includes `success: false`, the zero-based `chart_index`,
+and a generic message; nothing is saved. Empty results are successful.
+After all queries succeed, dashboard, chart, and filter writes share a transaction.
+HTTP 201 returns the saved objects and IDs. Swagger includes join and saved-chart examples.

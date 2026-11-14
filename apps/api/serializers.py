@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from apps.kpi.choices import Aggregation, FilterOperator, JoinType
+from apps.kpi.choices import Aggregation, ChartType, FilterOperator, JoinType
+from apps.kpi.models import Dashboard, KPIChart, KPIChartFilter
 
 from apps.core.choices import DatabaseType
 
@@ -55,15 +56,69 @@ class KPIQuerySerializer(serializers.Serializer):
                 "Join fields are required when join_table_name is provided."
             )
 
-        if not attrs.get('join_table_name') and any(
-            item['column'].startswith('joined.') for item in attrs.get('filters', [])
-        ):
-            raise serializers.ValidationError({'filters': 'Joined columns require join_table_name.'})
+        if not attrs.get('measure') and attrs['aggregation'] != Aggregation.COUNT:
+            raise serializers.ValidationError({'measure': 'A measure is required for this aggregation.'})
+        if not attrs.get('join_table_name'):
+            errors = {}
+            for field in ('dimension', 'measure'):
+                if attrs[field].startswith('joined.'):
+                    errors[field] = 'Joined columns require join_table_name.'
+            if any(item['column'].startswith('joined.') for item in attrs.get('filters', [])):
+                errors['filters'] = 'Joined columns require join_table_name.'
+            if errors:
+                raise serializers.ValidationError(errors)
         return attrs
 
-class KPIDashboardQuerySerializer(serializers.Serializer):
-    dashboard_id = serializers.IntegerField(min_value=1)
-    limit = serializers.IntegerField(default=100, min_value=1, max_value=1000)
+
+class KPIChartCreateSerializer(KPIQuerySerializer):
+    title = serializers.CharField(max_length=100)
+    chart_type = serializers.ChoiceField(choices=ChartType.choices, default=ChartType.BAR)
+    x_label = serializers.CharField(max_length=100, allow_blank=True, default='')
+    y_label = serializers.CharField(max_length=100, allow_blank=True, default='')
+    position = serializers.IntegerField(min_value=0, default=0)
+
+
+class DashboardCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=100)
+    description = serializers.CharField(allow_blank=True, default='')
+    charts = KPIChartCreateSerializer(many=True, allow_empty=False, max_length=50)
+
+
+class DashboardQueryFailureSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    chart_index = serializers.IntegerField(min_value=0)
+    message = serializers.CharField()
+
+
+class KPIChartFilterResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KPIChartFilter
+        fields = ['id', 'column', 'operator', 'value', 'position']
+
+
+class KPIChartResponseSerializer(serializers.ModelSerializer):
+    filters = KPIChartFilterResponseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = KPIChart
+        fields = [
+            'id', 'title', 'chart_type', 'x_label', 'y_label', 'position',
+            'table_name', 'dimension', 'measure', 'aggregation', 'join_table_name',
+            'join_type', 'join_left_column', 'join_right_column', 'limit', 'filters',
+        ]
+
+
+class DashboardResponseSerializer(serializers.ModelSerializer):
+    charts = KPIChartResponseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Dashboard
+        fields = ['id', 'title', 'description', 'owner', 'created_at', 'updated_at', 'charts']
+
+
+class KPIChartQuerySerializer(serializers.Serializer):
+    chart_id = serializers.IntegerField(min_value=1)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=1000)
 
 
 class KPITableColumnSerializer(serializers.Serializer):

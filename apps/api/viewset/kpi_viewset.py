@@ -72,6 +72,7 @@ class KPIViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['post'], url_path='chart-query', serializer_class=KPIChartQuerySerializer)
     def chart_query(self, request):
+        pass
         # TODO
         # options = self.get_serializer(data=request.data)
         # options.is_valid(raise_exception=True)
